@@ -75,4 +75,5 @@ fig.text(0.02, 0.044, "P1 uses baseline MRI; C1–C2 use week-240 change. A4–L
 fig.savefig(OUT, facecolor="white", metadata={"Date": None, "Title": "A4/LEARN dev comparisons with SynthSeg volumes",
             "Description": f"Aggregate results SHA256 {hashlib.sha256(raw).hexdigest()}; split SHA256 {r['meta']['split_sha']}. "
                            "P1: gain over clinical baseline. C1: age-adjusted A4–LEARN change separation. C2: correlation with decline."})
+OUT.write_text("\n".join(line.rstrip() for line in OUT.read_text().splitlines()) + "\n")
 print(f"Wrote {OUT} from {RESULTS} ({r['config']['run_date']})")
