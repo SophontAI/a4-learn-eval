@@ -8,11 +8,11 @@
 #   P3   CDR progression: worsening on the Clinical Dementia Rating by week 240: AUROC gained over clinical.
 #   B1-3 tau PET, amyloid PET (centiloid), plasma p-tau217 predicted from the scan alone (R2).
 #   S1-2 age and NeuroQuant hippocampal volume predicted from the scan alone (R2): sanity checks.
-#   C1   AD-specific change: how well week-240 minus baseline change in the representation separates amyloid-positive
-#        A4 from amyloid-negative LEARN participants, after removing normal ageing (d, in A4 standard deviations).
-#   C2   whether that change index tracks PACC decline (Spearman rho).   C3   its size relative to 12-week retest noise.
+#   C1   A4-LEARN change: how well week-240 minus baseline change separates the cohorts after linear age adjustment
+#        (d, in A4 standard deviations). This observational contrast does not isolate a disease or treatment effect.
+#   C2   whether that change index tracks PACC decline (Spearman rho). C3: its size relative to screening-to-week-12 variability.
 # Run (about 6 minutes on 64 CPUs):
-#   sbatch -p c --qos=high --account=sophont -c 64 --mem=256G -o /data/paul/a4/eval/eval.log --wrap "uv run python eval.py"
+#   sbatch -p c --qos=high --account=sophont -c 64 --mem=256G -o /data/paul/a4/eval/eval_%j.log --wrap "uv run --locked python eval.py"
 import hashlib
 import json
 import re
@@ -240,10 +240,10 @@ for (task, draw, mode), (oof, _) in zip(null_jobs, null_fits):
 print(f"[{time.time() - start:.0f}s] scoring done", flush=True)
 
 
-# ================= 6. AD-specific change (C1-C3): A4 vs LEARN =================
+# ================= 6. Cohort change (C1-C3): A4 vs LEARN =================
 def change_index(X, X12, age, is_a4, fold, score_test):
     """Turns each participant's week-240 change vector into one number, cross-fitted. In each training fold: remove each
-    feature's linear ageing effect (estimated net of cohort), then fit a ridge discriminant of A4 vs LEARN (a penalized
+    feature's linear age effect (estimated net of cohort), then fit a ridge discriminant of A4 vs LEARN (a penalized
     linear discriminant) and rescale its direction to unit SD on the training data. Held-out week-240 change and week-12
     change (NaN without a week-12 scan) are projected onto that direction. Returns (participants x repeats) arrays; with
     score_test, one more fit on all of dev scores the test rows into column 0."""
@@ -293,7 +293,7 @@ for rep, (v_all, v12_all) in zip(change_reps, Parallel(n_jobs=JOBS)(calls)):
                                d=stat[0, 0], d_ci=np.quantile(stat[1:, 0], [0.025, 0.975]),
                                rho_decline=stat[0, 1], rho_ci=np.quantile(stat[1:, 1], [0.025, 0.975]),
                                snr=stat[0, 2], snr_ci=np.quantile(stat[1:, 2], [0.025, 0.975]),
-                               n_per_arm_25pct=2 * MDE_K ** 2 / (0.25 * stat[0, 0]) ** 2,  # trial size to detect a 25% slowing of this change
+                               n_per_arm_25pct=2 * MDE_K ** 2 / (0.25 * stat[0, 0]) ** 2,  # hypothetical 25% contrast reduction, equal variance, no attrition
                                boot=stat[1:])
         if name == "dev":
             per_split[name]["d_sd_repeats"] = float(np.std([np.linalg.lstsq(np.c_[np.ones(len(rows)), is_a4[rows], age[rows]], v[:, r], rcond=None)[0][1]

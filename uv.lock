@@ -34,6 +34,11 @@ dependencies = [
     { name = "torch" },
 ]
 
+[package.dev-dependencies]
+docs = [
+    { name = "matplotlib" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "antspyx", specifier = ">=0.6.3" },
@@ -47,6 +52,9 @@ requires-dist = [
     { name = "synthseg", extras = ["torch"], git = "https://github.com/MedARC-AI/SynthSeg?rev=2690d9ac9ae28323d03043406cd21db0a8741547" },
     { name = "torch" },
 ]
+
+[package.metadata.requires-dev]
+docs = [{ name = "matplotlib", specifier = ">=3.10,<4" }]
 
 [[package]]
 name = "antspyx"

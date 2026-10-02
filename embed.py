@@ -13,8 +13,9 @@
 #
 # Only the forward pass runs here: about 4 minutes for all 5,745 scans and three models on 8 GPUs. To evaluate a new
 # checkpoint, add it to MODELS (the model code in smri-fm must know its architecture), run
-#   sbatch -p n --qos=high --account=sophont --gres=gpu:1 -c 16 --mem=96G --array=0-7 -o /data/paul/a4/mri/logs/embed_%a.log \
-#     --wrap 'for j in 0 1 2; do SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) uv run python embed.py & done; wait'
+#   sbatch -p n --qos=high --account=sophont --gres=gpu:1 -c 16 --mem=96G --array=0-7 -o /data/paul/a4/mri/logs/embed_%A_%a.log \
+#     --wrap 'set -e; pids=""; for j in 0 1 2; do SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) uv run --locked python embed.py &
+#             pids="$pids $!"; done; for pid in $pids; do wait "$pid"; done'
 # and add its name to MODELS in eval.py. Writes /data/paul/a4/mri/embed/<model>_<pool>/shard<k>.parquet (index
 # BID, session; float32 columns e0..; in "regions" the eight regions are consecutive blocks in REGIONS order) and,
 # from shard 0, /data/paul/a4/mri/embed/models.json (parameter count, width and seconds per scan of each model).
