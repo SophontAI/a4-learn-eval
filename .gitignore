@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
-# A4/LEARN data are under a data use agreement: never commit participant-level files or results
+# A4/LEARN data are under a data use agreement: never commit participant-level files.
+# Aggregate figures may be committed; generated JSON and HTML results stay under /data.
 *.parquet
 *.csv
 *.json

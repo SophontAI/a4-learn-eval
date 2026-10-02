@@ -1,156 +1,259 @@
 # A4/LEARN imaging eval
 
-An internal benchmark for brain-MRI representations, built on the A4 Alzheimer's prevention trial. Give it a vector of
-numbers per MRI scan (for example a foundation model's embedding) and it measures whether the scan tells a clinical
-trial something useful: who will decline, the disease biology behind it, and change over time that is specific to
-Alzheimer's. Every number is compared, on the same people, with standard volume measurements of the same scans, so
-it answers the question that matters for our foundation models: do they beat what a free segmentation tool gives?
+**Does a brain-MRI representation tell us more about future cognitive decline than conventional brain volumes?**
+This benchmark takes one vector per T1-weighted MRI scan, fits small prediction models, and compares representations
+on the same participants. The main score is the extra prediction of decline that MRI adds beyond clinical assessments
+and a blood biomarker. Separate tasks test disease biomarkers, anatomy, and change between scans.
 
-The latest results are on the [eval page](https://claude.ai/artifact/HKrSo3SoLKGr9GVczneX5q) (private, ask Paul for
-access) and summarized [below](#current-results).
+[Run a checkpoint](#run-a-checkpoint) · [How it was built](#how-it-was-built) · [Tasks](#tasks-and-targets) ·
+[Results](#current-results) · [Rebuild the inputs](#rebuild-the-inputs)
 
-## The study in one minute
+## Why this eval exists
 
-**A4** (Anti-Amyloid Treatment in Asymptomatic Alzheimer's) screened about 4,500 people aged 65-85 with normal memory
-using amyloid PET. The 1,169 with elevated brain amyloid, an early sign of Alzheimer's disease, were randomized to the
-antibody solanezumab or placebo and followed for 240 weeks (about 4.6 years). The drug did not slow decline. **LEARN**
-followed 538 people who screened amyloid-negative, untreated, with the same tests, as a reference for normal ageing.
+The [September 17 meeting](https://docs.google.com/document/d/188dtbu0hEslN0U4gP0d-XtC_2vMo-X2GWsKZsyOoOto/edit)
+in [#smri-clinical-evals](https://discord.com/channels/1025299671226265621/1547697725947125822) called for a focused,
+clinically relevant test of structural-MRI models. Three decisions shape this implementation:
 
-What was measured, and what the eval uses:
+- **Predict something useful beyond what is already measured.** Compare MRI with a strong clinical and blood-test
+  baseline, then compare embeddings with inexpensive SynthSeg volumes on exactly the same people.
+- **Distinguish prognosis from treatment benefit.** As clarified in the
+  [September 21 discussion](https://discord.com/channels/1025299671226265621/1547697725947125822/1551735593686409327),
+  predicting who declines can help adjust for differences between trial participants. It does not establish who
+  benefits from a drug. This version measures prognosis; it does not estimate treatment effects or identify responders.
+- **Measure change within a person.** The
+  [September 28 proposal](https://discord.com/channels/1025299671226265621/1547697725947125822/1554205236338360340)
+  motivates the longitudinal tasks: a representation that describes anatomy well may still miss meaningful change.
 
-| Measure | What it is |
-|---|---|
-| PACC | Preclinical Alzheimer Cognitive Composite, the trial's main outcome: the average of four memory and attention tests, scaled so 0 is the average at baseline and lower is worse. Given every 6-12 months. Placebo participants lost about 1.1 points over 240 weeks. |
-| CDR | Clinical Dementia Rating: 0 normal, 0.5 very mild impairment, 1 or more dementia. |
-| Amyloid PET | Brain amyloid load at screening, in centiloids. |
-| Tau PET | Tau tangles, the second Alzheimer's protein, which tracks symptoms more closely. About 375 A4 participants had it. |
-| Plasma p-tau217 | A blood test for Alzheimer's pathology; the strongest single predictor of decline in A4. |
-| T1-weighted MRI | Brain anatomy. A4: screening (session 004) and weeks 12, 84, 168 and 240 (sessions 009, 027, 048, 066). LEARN: baseline (006) and week 240 (066). 5,745 scans in total. |
+## Run a checkpoint
 
-## What the eval asks
+The clinical tables and prepared scans already exist on the Sophont cluster. For a new checkpoint, run **embedding
+and evaluation only**. You need Linux, [uv](https://docs.astral.sh/uv/), SLURM access, and access to the A4/LEARN release
+under its data use agreement. This repository does not download the study data.
 
-Each task asks one question and reports one headline number. "Gain" means how much a scan adds on top of what a trial
-already knows at baseline: age, sex, education, APOE e4 genotype, the PACC tests, everyday-function and
-cognitive-complaint questionnaires, CDR, a computerized test battery, and plasma p-tau217 (the "clinical baseline").
+```bash
+git clone https://github.com/SophontAI/a4-learn-eval.git
+cd a4-learn-eval
+uv sync --locked --python 3.13
+mkdir -p /data/paul/a4/eval /data/paul/a4/mri/logs
+```
 
-| Task | Question | Who (participants) | Headline |
-|---|---|---|---|
-| **P1** | Does the scan predict how fast someone's PACC declines, beyond the clinical baseline? **The primary task.** | A4, both arms, 893 | R² gained |
-| P1 scan | The same target from the scan alone | 893 | R² |
-| P1t | Does the scan add to tau PET? (P1 within the tau PET substudy, with tau PET in the baseline) | 296 | R² gained |
-| P2 | PACC change at week 240 (the target in the published A4 prognosis paper, Devanarayan et al. 2025) | 746 | R² gained |
-| P3 | Who worsens on the CDR by week 240? | 804 | AUROC gained |
-| B1-B3 | Tau PET, amyloid PET and plasma p-tau217, read from the scan alone | 374-1,118 | R² |
-| S1-S2 | Age and hippocampal volume from the scan: sanity checks a good representation should pass | 1,651 | R² |
-| C1 | Does change in the scan over 240 weeks separate amyloid-positive A4 from amyloid-negative LEARN, after removing normal ageing? | 1,089 with both scans | d |
-| C2 | Does that change track PACC decline? | A4 of C1 | Spearman ρ |
-| C3 | Is that change large compared with noise between scans taken 12 weeks apart? | A4 of C1 | ratio |
+Paths are fixed near the top of each script. The defaults use the shared cache under `/data/paul/a4` and overwrite
+outputs there when rerun; coordinate runs using the same directories. The model-code dependency also requires the
+existing `/data/paul/a4/smri-fm` checkout (commit `11e53ab`), set in [pyproject.toml](pyproject.toml).
 
-Why the PACC slope is the headline: the rate of decline over every visit (at least 4 visits over at least 2 years) is
-measured more reliably than the change at one visit (split-half reliability 0.87) and is available for more people,
-so it can tell representations apart with a third of the participants a week-240 comparison would need.
+1. Add a checkpoint to `MODELS` in [embed.py](embed.py), for example
+   `"my-model": "/data/paul/checkpoints/my-model.pth"`. It must be supported by `fomo_tune.backbone.load_backbone`.
+2. Add the matching identifier to `MODELS` in [eval.py](eval.py), for example `"My model": "my-model"`.
+   Whole-brain, medial-temporal and eight-region poolings become separate rows. Keep the reference models.
+3. Submit embedding, then an evaluation that waits for it to succeed. Run from the repo root:
 
-## How it keeps us honest
+```bash
+embed_job=$(sbatch --parsable -p n --qos=high --account=sophont \
+  --gres=gpu:1 -c 16 --mem=96G --array=0-7 \
+  -o /data/paul/a4/mri/logs/embed_%A_%a.log \
+  --wrap 'set -e; pids=""; for j in 0 1 2; do
+    SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) uv run --locked python embed.py &
+    pids="$pids $!"
+  done; for pid in $pids; do wait "$pid"; done')
 
-- **One frozen split.** Participants are split once into dev (75%) and test (25%). The split is checked against a
-  hash in the code, so it cannot change by accident.
-- **Develop on dev, look at test once.** Dev scores come from 5-fold cross-validation repeated 10 times with fixed
-  folds. Test scores are only computed for representations listed in `FROZEN` in `eval.py`; add a model there when it
-  is final.
-- **Fixed probes.** Every representation gets the same model: ridge regression with a fixed penalty grid. When the
-  clinical baseline is included, the baseline and the scan each get their own ridge and a linear regression combines
-  them, so a 1,024-number embedding cannot drown out fifteen clinical scores.
-- **Paired comparisons.** A participant bootstrap (2,000 draws) shared by all representations gives every difference
-  a confidence interval.
-- **Calibrated chance.** 24 random representations go through every task. Their average is the chance level, and
-  their spread is the extra noise from fitting a probe, which the bootstrap cannot see. All intervals and detectable
-  differences include it.
-- **Known resolution.** For each task the eval reports the smallest difference from the reference it can detect with
-  80% power.
+sbatch --dependency=afterok:"$embed_job" -p c --qos=high --account=sophont \
+  -c 64 --mem=256G -o /data/paul/a4/eval/eval_%j.log \
+  --wrap 'uv run --locked python eval.py'
+```
 
-## How to read the results
+Embedding takes about four minutes for the three included checkpoints on eight GPUs; evaluation takes about six
+minutes on 64 CPUs. More models take longer. Each GPU runs three of the 24 shards; a failed shard fails its array task.
 
-- Gains near the chance level are not real. Shaded cells on the eval page (▲ better, ▼ worse than SynthSeg volumes)
-  are differences whose 95% interval excludes zero. With about 150 comparisons, a few will appear by chance, so look
-  for patterns across related tasks.
-- Compare a difference with the task's **detectable difference**: on dev the headline resolves 0.023 R², the test
-  split only 0.048. Gains of the size we care about (about +0.03 over volumetrics) therefore need confirming on
-  another cohort (ADNI), not just on the test split.
-- R² is the share of variation explained; AUROC is the chance a progressor scores above a non-progressor (0.5 = coin
-  flip); d is a difference in standard deviations. The C1 number converts to a trial size: participants per arm
-  needed to detect a 25% slowing of the Alzheimer's-specific change.
+4. Open **`/data/paul/a4/eval/report.html`** in a browser, copying it to your computer if needed. It contains the full
+   scorecard, paired comparisons and task plots. The repo's [report.html](report.html) is a template; `eval.py` fills it.
+5. Develop using **dev** scores. Once the checkpoint and pooling are final, add the exact representation name,
+   such as `"My model, medial temporal"`, to `FROZEN` in `eval.py` and rerun to obtain its test score. The included
+   reference models have already been scored on test; repeatedly consulting them does not create new validation.
+
+Other encoders can supply the tables that `embed.py` writes: one parquet directory per `<model>_<pool>`, a unique
+string `(BID, session)` MultiIndex, and finite numeric columns `e0, e1, …`. All baseline scans and the same paired
+follow-up scans must be present. The current loader expects all three poolings; arbitrary encoder architectures
+need their own extraction code.
+
+## How it was built
+
+**A4** enrolled 1,169 cognitively unimpaired, amyloid-positive participants, randomized to solanezumab or placebo for
+240 weeks (about 4.6 years). The trial found no significant slowing of cognitive decline with solanezumab.
+**LEARN** followed 538 amyloid-negative participants without treatment. It is an observational ageing comparison,
+not A4's randomized placebo arm. See the [A4 trial paper](https://doi.org/10.1056/NEJMoa2305032).
+
+```mermaid
+flowchart TD
+    clinical["Clinical release: 1,169 A4 + 538 LEARN"] --> data["data.py: baseline measures and follow-up targets"]
+    scans["5,745 T1-weighted MRI scans"] --> prepare["prepare.py: SynthSeg, affine registration, QC"]
+    prepare --> embed["embed.py: frozen encoder, three token poolings"]
+    data --> eval["eval.py: 1,651 eligible participants<br/>1,238 dev / 413 test"]
+    prepare -->|conventional volumes| eval
+    embed -->|one vector per scan| eval
+    eval --> results["Fixed probes and paired comparisons<br/>results.json and interactive report.html"]
+```
+
+**Participants.** The eligible set contains 1,118 A4 and 533 LEARN participants with a usable baseline scan and
+NeuroQuant volumes; A4 also requires membership in the modified intention-to-treat set. Registration QC requires
+brain-mask Dice ≥ 0.9 against the template; one of the 5,745 scans fails. Each task then requires its target and, for
+prognostic gains, complete clinical covariates. Missing values are not imputed. Counts differ **between tasks**, but
+every representation within a task is evaluated on the same participants.
+
+**Scans.** A4 sessions `004`, `009`, `027`, `048`, `066` correspond to screening, weeks 12, 84, 168 and 240. LEARN uses
+`006` at baseline and `066` at week 240. Prediction tasks use only baseline MRI; follow-up MRI is used for C1–C3.
+
+**Representations.** SynthSeg segments 32 structures and supplies a brain mask. ANTs affine registration maps scans
+to the 1 mm MNI152NLin2009cAsym template. Images are brain-masked and intensity-scaled, then padded to
+`208 × 240 × 208` and z-scored within the brain before encoding. Frozen walnut patch tokens are pooled over the whole
+brain, the medial temporal region, or eight regions concatenated. SynthSeg volumes are normalized by intracranial
+volume, which is also included as a feature. NeuroQuant provides a second, baseline-only volume comparator.
+
+## Tasks and targets
+
+**PACC** is the Preclinical Alzheimer Cognitive Composite, combining four standardized cognitive tests; lower scores
+are worse. **CDR** is the Clinical Dementia Rating; progression here means worsening from a global score of zero.
+**p-tau217** is a blood biomarker. Amyloid and tau PET measure disease pathology, not MRI anatomy.
+
+The **clinical baseline** contains age, sex, education, APOE ε4, baseline PACC and its four components, participant and
+partner cognitive complaints, CDR sum of boxes, daily function, Cogstate C3, and log plasma p-tau217. Treatment arm is
+also included. P1t adds two baseline tau PET summaries. Exact columns are in `CLINICAL` and `TAU` in [eval.py](eval.py).
+
+| Task | Question / target | Dev / test participants | Headline |
+|---|---|---:|---|
+| **P1 — primary** | Does baseline MRI add prediction of PACC decline rate in A4 beyond clinical + blood measures? | **666 / 227** | **ΔR²** |
+| P1 scan | Same decline rate, from MRI alone | 666 / 227 | R² |
+| P1t | Does MRI add prediction after tau PET is available? | 219 / 77 | ΔR² |
+| P2 | PACC change to week 240, among completers | 558 / 188 | ΔR² |
+| P3 | CDR progression near week 240 | 602 / 202 | ΔAUROC |
+| B1 | Baseline tau PET temporal meta-region SUVR from MRI alone (A4) | 278 / 96 | R² |
+| B2 | Baseline amyloid PET centiloids from MRI alone (A4) | 839 / 279 | R² |
+| B3 | Baseline log plasma p-tau217 from MRI alone (A4) | 779 / 261 | R² |
+| S1 / S2 | Age / NeuroQuant hippocampal volume as % intracranial volume (A4 + LEARN) | 1,238 / 413 | R² |
+| C1 | Does week-240 MRI change separate A4 from LEARN after linear age adjustment? | 820 / 269 with paired scans | d |
+| C2 | Does that change index track PACC decline? | A4 subset of C1 with a valid slope | Spearman ρ |
+| C3 | How large is that separation relative to short-interval MRI variability? | C1; denominator uses A4 with session `009` | Ratio |
+
+NeuroQuant is excluded from S2 because it contains the target, and from C1–C3 because only baseline volumes are
+available. Age and hippocampal prediction check retained information; they are not clinical endpoints.
+
+### Why P1 is the headline
+
+P1 fits a PACC slope over **all blinded-phase assessments**, requiring at least four assessments spanning two years.
+Test-form offsets are subtracted first; negative slopes mean decline. No follow-up MRI enters the prediction. The
+offsets in `FORM` are fixed estimates from a separate trial-data fit, not re-estimated within dev folds.
+
+Alternate-visit slopes correlate at **0.77**, giving a Spearman–Brown full-slope reliability estimate of **0.87**.
+The saved design comparison illustrates the precision for one fixed pair: walnut v0.1 ViT-L medial temporal vs SynthSeg.
+
+| Target design | Dev participants | Approximate detectable R² difference |
+|---|---:|---:|
+| Week-240 change, scored on placebo | 283 | 0.043 |
+| Week-240 change, scored on both arms | 558 | 0.032 |
+| PACC slope, scored on both arms | 666 | 0.025 |
+
+These are bootstrap-only diagnostics on predictions averaged across repeats, not a prospective sample-size guarantee.
+P2 is motivated by [Devanarayan et al. (2025)](https://doi.org/10.1002/alz.70702), which trained on both arms but evaluated
+natural decline on placebo. This repo uses ridge probes and scores both arms, so it does not reproduce that paper's
+boosted models or trial-efficiency simulations.
+
+### What the secondary endpoints mean
+
+**P3** uses the release's CDR event indicator: positive global CDR at two consecutive blinded visits or at the last
+visit. An event by week **252** is positive; no event with follow-up to at least week **228** is negative. Other outcomes
+are unknown and excluded. A ridge score ranks participants for AUROC; this is not a survival model, calibrated risk
+probability, or estimate of when progression occurs.
+
+**C1–C3** start with **week-240 minus baseline vectors**. Within each training fold, the code removes an estimated
+linear age effect, fits a ridge discriminant of A4 versus LEARN, and projects held-out changes onto that direction.
+C1 divides the age-adjusted cohort difference by the index's A4 standard deviation. C2 correlates the index with
+**negative PACC slope**, so positive ρ means more change accompanies more decline. C3 divides the cohort difference
+by the standard deviation of A4 screening-to-week-12 change projected onto the same direction.
+
+The earlier label “AD-specific change” refers to this **exploratory A4–LEARN contrast**. Age adjustment does not isolate
+Alzheimer's from all cohort, treatment or scanner differences. C3 includes real short-term change and measurement
+noise; the first A4 scan is at screening, not week zero. The report's hypothetical trial-size calculation assumes a
+25% reduction in this contrast, equal variance and no attrition, not a validated treatment endpoint. Survival analysis,
+treatment-response subgroups, WMH segmentation and ARIA prediction discussed by the team are not implemented here.
+
+## Comparing models fairly
+
+- **One participant split.** A fixed 75/25 dev/test split is stratified by cohort, treatment arm, APOE ε4 and tau-substudy
+  membership. All scans from one person stay together. `SPLIT_SHA` checks the exact split and fold assignments.
+- **Same probes and folds.** Dev uses five-fold cross-validation repeated ten times. Standardized ridge selects its
+  penalty from a fixed grid. Clinical and MRI blocks get separate ridge fits, combined by a linear model trained on
+  cross-fitted predictions. Test uses a fit on all dev participants. Dev scores average the ten repeat scores, rather
+  than scoring the average prediction.
+- **Paired uncertainty.** Representations share participant-bootstrap draws: 2,000 for P/B/S and 1,000 for C tasks.
+  `results.json` stores bootstrap intervals. The report widens **differences from SynthSeg** using variability across
+  24 random 1,024-dimensional probes; ordinary score/gain intervals remain bootstrap-only. This is an approximate
+  calibration, not a full refit bootstrap or a dimension-matched null for every representation.
+- **Two comparisons.** P1 gain is `R²(clinical + MRI) − R²(clinical)`. Beating volumes requires the further paired
+  difference `R²(clinical + embedding) − R²(clinical + SynthSeg)` to be positive. Overlap of separate error bars does
+  not answer that question.
+
+R² can be negative on held-out data. AUROC measures ranking (0.5 is chance); d expresses separation in standard
+deviations. Comparisons are unadjusted for multiple testing. Use P1 as the primary decision point and other tasks to
+understand the result. Approximate P1 resolution is **0.023 R² on dev** and **0.048 on test** (80% power, using median
+paired standard errors and random-probe variation). Small gains need external validation; repeated dev selection can
+overfit this cohort.
 
 ## Current results
 
-Run 2026-10-02, dev split, three walnut checkpoints against volumetrics (the eval page has every task, interval and
-test score):
+Snapshot from **2026-10-02**, dev only. The clinical baseline reaches **R² 0.274**; adding SynthSeg volumes brings it to
+**0.320** (gain **+0.046**). The figure compares every included representation directly with that volume reference.
+It also shows why separating cohorts and tracking cognitive decline are different goals.
 
-| Representation | P1 gain (ΔR²) | P1 scan alone (R²) | p-tau217 (R²) | Tau PET (R²) | Age (R²) | C1 change (d) |
-|---|---|---|---|---|---|---|
-| Clinical baseline alone | R² 0.274 | | | | | |
-| SynthSeg volumes (reference) | +0.046 | 0.153 | 0.066 | 0.034 | 0.36 | 0.47 |
-| NeuroQuant volumes | +0.046 | 0.158 | 0.087 | 0.107 | 0.61 | |
-| walnut v0.1 ViT-L, medial temporal | +0.047 | 0.170 | 0.139 | 0.074 | 0.50 | 0.28 |
-| walnut v0.1 ViT-L, 8 regions | +0.040 | 0.171 | 0.172 | 0.104 | 0.54 | 0.64 |
-| walnut v0.1 ViT-L, whole brain | +0.012 | 0.117 | 0.152 | 0.061 | 0.53 | 0.50 |
-| walnut v0.1 ViT-B, medial temporal | +0.046 | 0.175 | 0.136 | 0.058 | 0.49 | 0.61 |
-| Chance (random representations) | +0.000 | -0.005 | -0.004 | -0.016 | -0.002 | 0.01 |
+![Paired dev differences from SynthSeg volumes for P1 prognosis, C1 cohort change and C2 tracking of decline. Medial-temporal and regional embeddings are close to volumes on P1; whole-brain pooling is worse. Longitudinal results vary by model and task.](readme-results.svg)
 
-In words: the foundation models tie volumetrics on the headline. They read more biology from the scan (p-tau217,
-amyloid, the hippocampus), but that information overlaps with the blood test already in the clinical baseline, so it
-does not add prediction yet. Averaging tokens over the whole brain loses the signal; pooling over the medial temporal
-lobe or over regions keeps it. No scan adds to the clinical baseline for CDR progression (AUROC 0.79 with or without).
+Points to the right of zero favor the representation. Bars are approximate 95% paired intervals including
+random-probe variation, matching the report's comparison logic. Zero inside the bar means an inconclusive comparison.
+SynthSeg compared with itself has no error bar; NeuroQuant has no longitudinal measurements.
 
-## Running it
+No included embedding clearly improves on SynthSeg for dev P1; whole-brain pooling performs worse. Some embeddings
+separate A4 from LEARN more strongly on C1, yet their change indices track PACC decline less well on C2. The interactive
+report adds biomarker prediction, anatomy checks, C3 and test results for frozen representations. These results
+measure representation utility; they do not demonstrate treatment benefit.
 
-Everything runs on the Sophont cluster with [uv](https://docs.astral.sh/uv/):
+Refresh the aggregate-only figure after a new run with `uv run --locked --group docs python figures.py`, then update
+the dated prose and counts above if they changed.
+
+## Rebuild the inputs
+
+Only needed when recreating the cache. Follow setup above, then:
 
 ```bash
-uv sync                 # Python 3.13 environment from pyproject.toml / uv.lock
-uv run python data.py   # step 1: participant tables (10 s)
+uv run --locked python data.py
+
+sbatch -p n --qos=high --account=sophont --gres=gpu:1 -c 16 --mem=128G --array=0-7 \
+  -o /data/paul/a4/mri/logs/prepare_%A_%a.log \
+  --wrap 'set -e; pids=""; for j in 0 1 2; do
+    SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=5 \
+      PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True uv run --locked python prepare.py &
+    pids="$pids $!"
+  done; for pid in $pids; do wait "$pid"; done'
 ```
 
-Steps 2-4 run on SLURM (`--qos=high --account=sophont`); the exact commands are at the top of each script.
+`data.py` takes about ten seconds; `prepare.py` takes 2.5–4 hours on eight GPUs. **Wait for every preparation task to
+finish successfully before submitting embedding.** Preparation reruns all scans; it does not skip existing files.
+Then follow embedding/evaluation above. Multithreaded ANTs registration is not bit-for-bit reproducible; use fixed
+cached inputs to compare runs without preprocessing differences.
 
-| Step | Script | Runs | Time |
-|---|---|---|---|
-| 1 | `data.py` | anywhere | 10 s |
-| 2 | `prepare.py`: segment and register every scan (once; already done) | 8 GPUs | 2.5-4 h |
-| 3 | `embed.py`: embed every scan with each model in `MODELS` | 8 GPUs | 4 min |
-| 4 | `eval.py`: score every representation, write the page | 64 CPUs | 6 min |
-
-`embed.py` and `eval.py` reproduce their outputs exactly. `prepare.py` reproduces the cache closely but not bit for
-bit: ANTs registration is multithreaded, so its sums change in the last digits between runs (re-preparing three scans
-gave image correlations above 0.9995 with the cache).
-
-**To evaluate a new checkpoint:** add it to `MODELS` in `embed.py` and run step 3, add the same name to `MODELS` in
-`eval.py` and run step 4, then open `/data/paul/a4/eval/report.html`. Its three poolings appear as new rows. The
-walnut model code comes from a clone of [MedARC-AI/smri-fm](https://github.com/MedARC-AI/smri-fm) at commit 11e53ab
-(`/data/paul/a4/smri-fm`, set in `pyproject.toml`); point that at a newer checkout if a model needs newer code.
-
-## Where things are
-
-| What | Where |
+| Input / output | Cluster location |
 |---|---|
-| ATRI data release (clinical CSVs, data dictionaries) | `/data/leema/a4/Clinical` |
-| A4 T1w scans (BIDS) | `/data/leema/a4/A4-bids/A4` |
-| LEARN T1w scans (copied from the team's R2 bucket) | `/data/paul/a4/learn_t1` |
-| Prepared scans, SynthSeg volumes and QC, embeddings | `/data/paul/a4/mri/{prepared,synthseg,embed}` |
-| Eval tables, frozen split, predictions, results, page | `/data/paul/a4/eval` |
-| walnut checkpoints (hf://medarc/walnut) | `/data/smri-datasets/huggingface` |
+| ATRI release `A4LEARN 1.2.20260114`, clinical CSVs and dictionaries | `/data/leema/a4/Clinical` |
+| A4 T1w scans | `/data/leema/a4/A4-bids/A4` |
+| LEARN T1w scans | `/data/paul/a4/learn_t1` |
+| MNI template | `/data/paul/a4/template/MNI152NLin2009cAsym_res-01_T1w.nii.gz` |
+| Walnut model code / checkpoints | `/data/paul/a4/smri-fm` / `/data/smri-datasets/huggingface` |
+| Prepared scans / SynthSeg and QC / embeddings | `/data/paul/a4/mri/{prepared,synthseg,embed}` |
+| Participant tables, `splits.csv`, `predictions.parquet`, `results.json`, generated `report.html` | `/data/paul/a4/eval` |
 
-## Files
-
-| File | Role |
-|---|---|
-| `data.py` | Builds `participants.parquet` (one row per participant) and `pacc.parquet` (one row per PACC assessment) from the data release |
-| `prepare.py` | SynthSeg segmentation and affine registration to the MNI template for all 5,745 scans, cached so new models only need a forward pass |
-| `embed.py` | Embeds the prepared scans with each walnut checkpoint and pools the tokens three ways (whole brain, medial temporal lobe, 8 regions) |
-| `eval.py` | The eval: frozen split, probes, scores, paired comparisons, chance calibration and resolution; writes `results.json` and the page |
-| `report.html` | Template for the eval page (`eval.py` fills it with `results.json`) |
+The pipeline is [data.py](data.py) → [prepare.py](prepare.py) → [embed.py](embed.py) → [eval.py](eval.py).
+[report.html](report.html) defines the interactive report; [figures.py](figures.py) exports the README figure without
+loading participant data or rerunning the eval.
 
 ## Data use
 
-A4/LEARN data are under a data use agreement that forbids redistribution. Participant-level files (the parquet
-tables, `splits.csv`, `predictions.parquet`, scans) stay under `/data` and must never be committed; `.gitignore`
-blocks data file types. `results.json` and the eval page contain aggregate statistics only.
+A4/LEARN data are governed by a data use agreement. Keep scans, participant tables, splits, predictions, embeddings
+and checkpoints under `/data`; do not commit or redistribute them. `.gitignore` excludes the data formats used here.
+The generated results, report and README figure contain aggregate statistics only.

@@ -13,9 +13,10 @@
 #
 # SynthSeg (about 20 s per scan, mostly CPU post-processing) and ANTs (about 14 s) dominate. SynthSeg's network needs
 # 15-20 GB of GPU memory, so three shards share each GPU; 8 GPUs (24 shards) take about 2.5-4 hours:
-#   sbatch -p n --qos=high --account=sophont --gres=gpu:1 -c 16 --mem=128G --array=0-7 -o /data/paul/a4/mri/logs/prepare_%a.log \
-#     --wrap 'for j in 0 1 2; do SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=5 \
-#             PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True uv run python prepare.py & done; wait'
+#   sbatch -p n --qos=high --account=sophont --gres=gpu:1 -c 16 --mem=128G --array=0-7 -o /data/paul/a4/mri/logs/prepare_%A_%a.log \
+#     --wrap 'set -e; pids=""; for j in 0 1 2; do SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=5 \
+#             PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True uv run --locked python prepare.py &
+#             pids="$pids $!"; done; for pid in $pids; do wait "$pid"; done'
 # Writes (participant-level, keep under /data):
 #   /data/paul/a4/mri/prepared/<BID>_<session>.npz   image (float16) and labels (uint8 SynthSeg codes) on the template grid
 #   /data/paul/a4/mri/synthseg/shard<k>.parquet      per scan: structure volumes (mm^3), TIV, and registration QC:

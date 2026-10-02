@@ -1,5 +1,5 @@
 <title>A4/LEARN Imaging Eval</title>
-<meta name="description" content="Internal eval for structural-MRI representations on A4/LEARN: prognosis, biology, anatomy and AD-specific change against conventional volumetrics.">
+<meta name="description" content="Internal eval for structural-MRI representations on A4/LEARN: prognosis, biology, anatomy and longitudinal cohort change against conventional volumetrics.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
@@ -141,7 +141,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; 
 <header class="top">
   <div class="eyebrow">Sophont · neuro · internal eval v1, frozen 2026-10-01</div>
   <h1>A4/LEARN Imaging Eval</h1>
-  <p class="dek">Scores any representation of a T1-weighted brain MRI on what a preclinical Alzheimer's trial needs from the scan: prognosis beyond clinical data and plasma p-tau217, the biology behind it, anatomy, and change that is specific to Alzheimer's disease. Every number is paired against conventional volumetrics on the same scans, so foundation-model checkpoints can be compared without rewarding noise.</p>
+  <p class="dek">Compares T1-weighted brain-MRI representations on prognosis beyond clinical data and plasma p-tau217, biomarker prediction, anatomy, and longitudinal change. Every representation is compared with conventional volumetrics on the same participants within each task. These are prognostic and representation evaluations; they do not estimate treatment benefit or identify drug responders.</p>
   <div class="meta"><span id="meta-run"></span><span id="meta-split"></span><span>Code: github.com/SophontAI/a4-learn-eval</span><span>Aggregate statistics only (A4 data use agreement)</span></div>
 </header>
 
@@ -185,7 +185,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; 
 <section id="biology" aria-labelledby="h-bio">
   <div class="sechead">
     <h2 id="h-bio">Biology and anatomy</h2>
-    <p class="col">How much of the disease biology and basic anatomy can be read from the scan alone. Anatomy tasks are sanity checks: a representation that loses here has a preprocessing or pooling problem before it has a prognosis problem.</p>
+    <p class="col">How much of the disease biology and basic anatomy can be read from the scan alone. Anatomy tasks are sanity checks: weak performance warrants checking preprocessing and pooling, but does not by itself diagnose a pipeline error.</p>
   </div>
   <figure>
     <figcaption><span class="figno">Figure 3</span><span class="figtitle">B1–B3: tau PET, amyloid PET and plasma p-tau217 from the scan</span>
@@ -201,11 +201,11 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; 
 
 <section id="change" aria-labelledby="h-change">
   <div class="sechead">
-    <h2 id="h-change">AD-specific change</h2>
-    <p class="col">A treatment endpoint has to move with the disease, not with ageing or scanner drift. Week-240 minus baseline change in each representation is compared between amyloid-positive A4 and amyloid-negative LEARN participants, who were scanned at the same sites over the same years. Each feature's ageing slope is removed, a cross-fitted ridge discriminant turns the change into one index, and the index is scored on held-out participants.</p>
+    <h2 id="h-change">Longitudinal change: A4 versus LEARN</h2>
+    <p class="col">Week-240 minus baseline change is compared between amyloid-positive A4 and amyloid-negative LEARN participants. Within each training fold, a linear age effect is removed and a ridge discriminant turns change into one index, scored on held-out participants. This is an exploratory cohort contrast: LEARN is not A4's randomized placebo arm, and age adjustment does not isolate Alzheimer's effects from treatment, scanner or other cohort differences.</p>
   </div>
   <figure>
-    <figcaption><span class="figno">Figure 5</span><span class="figtitle">C1–C3: separation from amyloid-negative ageing, tracking of decline, and retest noise</span>
+    <figcaption><span class="figno">Figure 5</span><span class="figtitle">C1–C3: cohort separation, tracking of decline, and short-interval variability</span>
       <span class="fignote" id="f5-note"></span></figcaption>
     <div class="panel"><div class="chart" id="f5"></div></div>
   </figure>
@@ -214,11 +214,11 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; 
 <section id="quality" aria-labelledby="h-quality">
   <div class="sechead">
     <h2 id="h-quality">How good is the eval itself</h2>
-    <p class="col">An eval is only useful for hill-climbing if it can tell real differences from noise. These numbers come from the same paired bootstrap as the scores: the smallest difference from the reference each task detects with 80% power, how much the score moves when only the cross-validation folds change, and whether the dev ranking holds on the untouched test split.</p>
+    <p class="col">These diagnostics estimate the difference from the reference detectable with 80% power, variation across cross-validation partitions, and agreement of dev and test rankings. Resolution is approximate, not a prospective power guarantee. Test scores for the frozen representations have already been computed.</p>
   </div>
   <figure>
     <figcaption><span class="figno">Figure 6</span><span class="figtitle">Resolution by task</span>
-      <span class="fignote">Detectable difference = 2.80 × √(SE² + 2 SD²), where SE is the median paired-bootstrap SE of (representation − reference) and SD is the chance variation of one representation's score, measured by running random representations through the same probe (bootstrap-only value in brackets where they differ). Fold SD is the median standard deviation of the score across the ten cross-validation repeats. Rank agreement is the Spearman correlation of dev and test scores across frozen representations.</span></figcaption>
+      <span class="fignote">Detectable difference = 2.80 × √(SE² + 2 SD²), where SE is the median paired-bootstrap SE of (representation − reference) and SD is the chance variation of one representation's score, measured by running random representations through the same probe (bootstrap-only value in brackets where they differ). Repeat SD is the median standard deviation of the score across the ten cross-validation repeats. Rank agreement is the Spearman correlation of dev and test scores across frozen representations.</span></figcaption>
     <div id="t-res"></div>
   </figure>
   <figure>
@@ -239,18 +239,20 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; 
       <li><strong>Split.</strong> One 75/25 dev/test split stratified by cohort, arm, APOE ε4 and tau-substudy membership, plus ten fixed 5-fold assignments of dev. The split file must hash to <span class="num" id="p-sha"></span>, so it cannot drift.</li>
       <li><strong>Probes.</strong> Standardized ridge with a fixed penalty grid for a single block; when clinical data are present, one ridge per block combined by stacking, so a wide embedding cannot swamp fifteen clinical features. No tuning per representation.</li>
       <li><strong>Targets.</strong> P1: least-squares PACC slope over every blinded visit (at least 4 visits over 2 years), adjusted for test form. P2: PACC change at week 240 in completers. P3: ATRI's CDR-global progression event by week 252 against event-free follow-up to week 228 or later. Clinical block: age, sex, education, APOE ε4, baseline PACC and its components, MMSE, CFI, CDR-SB, ADL, C3 and log plasma p-tau217.</li>
-      <li><strong>Scoring.</strong> Dev scores average the ten repeats of out-of-fold predictions. A participant bootstrap (2,000 draws, shared by every representation) gives the intervals and paired differences. Differences are also widened by the chance variation of a fitted probe, measured once per run by scoring 24 random representations on every task. Test scores come from one fit on all of dev.</li>
+      <li><strong>Scoring.</strong> Dev scores average the scores from ten cross-validation repeats. Shared participant-bootstrap draws give score and gain intervals: 2,000 draws for P/B/S tasks, 1,000 for C tasks. This page widens differences from SynthSeg using variation across 24 random 1,024-dimensional probes (C1 and C2, but not C3). Score/gain intervals remain bootstrap-only; results.json stores bootstrap intervals before this widening. Test scores come from one fit on all of dev.</li>
       <li><strong>Test discipline.</strong> Test is scored only for representations listed in <code>FROZEN</code> in <code>eval.py</code>. Add a checkpoint there once, when it is final, and report that number.</li>
     </ul>
     <div class="callout"><strong>Using it to hill-climb.</strong> Develop against the dev scores. A checkpoint improves on another only when the paired interval excludes zero on P1 (gain or scan alone) without losing on S1–S2. Check B1 and C1–C3 for where the gain comes from. Gate-sized gains (about +0.03 R² over volumetrics) are detectable on dev but not reliably on the 25% test split, so confirm them on an external cohort (ADNI) before claiming them.</div>
     <h3>Evaluate a new checkpoint</h3>
-    <pre>1. Add the checkpoint to MODELS in embed.py, then embed every cached scan (minutes on 8 GPUs):
+    <pre>1. From the repo root, add the checkpoint to MODELS in embed.py, then embed cached scans (minutes on 8 GPUs):
    sbatch -p n --qos=high --account=sophont --gres=gpu:1 -c 16 --mem=96G --array=0-7 \
-     -o /data/paul/a4/mri/logs/embed_%a.log \
-     --wrap 'for j in 0 1 2; do SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) uv run python embed.py &amp; done; wait'
-2. Add the same name to MODELS in eval.py and run the eval (about 6 min on 64 CPUs):
-   sbatch -p c --qos=high --account=sophont -c 64 --mem=256G -o /data/paul/a4/eval/eval.log --wrap "uv run python eval.py"
-3. Read /data/paul/a4/eval/report.html. Score test only after adding the final checkpoint to FROZEN.</pre>
+     -o /data/paul/a4/mri/logs/embed_%A_%a.log \
+     --wrap 'set -e; pids=""; for j in 0 1 2; do SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) uv run --locked python embed.py &amp;
+       pids="$pids $!"; done; for pid in $pids; do wait "$pid"; done'
+2. Wait for every embedding task to succeed, add the same identifier to MODELS in eval.py, then run the eval:
+   sbatch -p c --qos=high --account=sophont -c 64 --mem=256G -o /data/paul/a4/eval/eval_%j.log --wrap "uv run --locked python eval.py"
+3. Read /data/paul/a4/eval/report.html. Add only final representation names to FROZEN to obtain test scores.
+See README.md for setup, prerequisites and submission with an afterok dependency.</pre>
   </div>
 </section>
 
@@ -261,7 +263,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; 
   <div class="stack col">
     <ul>
       <li><strong>A4.</strong> The Anti-Amyloid Treatment in Asymptomatic Alzheimer's study: 1,169 cognitively unimpaired people aged 65–85 with elevated brain amyloid, randomized to solanezumab or placebo for 240 weeks. The drug did not slow decline.</li>
-      <li><strong>LEARN.</strong> 538 people who screened amyloid-negative, followed untreated with the same tests and MRI schedule: a reference for normal ageing.</li>
+      <li><strong>LEARN.</strong> 538 people who screened amyloid-negative, followed untreated, with MRI at baseline and week 240. An observational ageing comparison, not A4's placebo arm.</li>
       <li><strong>Amyloid and tau.</strong> The two proteins that define Alzheimer's disease. Amyloid plaques build up first; tau tangles follow and track symptoms more closely. Both are measured with PET; amyloid load is reported in centiloids, tau as SUVR (uptake relative to a reference region).</li>
       <li><strong>Plasma p-tau217.</strong> A blood test for Alzheimer's pathology, the strongest single predictor of decline in this population. It is part of the clinical baseline, so a scan only counts when it adds to it.</li>
       <li><strong>PACC.</strong> Preclinical Alzheimer Cognitive Composite, the trial's primary outcome: the mean of four z-scored memory and attention tests (0 = average at baseline, lower = worse). Placebo participants declined about 1.1 points over 240 weeks.</li>
@@ -276,7 +278,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; 
 </section>
 
 <footer>
-  <span>Sources: ATRI A4/LEARN release (participant tables and T1w MRI on /data); walnut sMRI encoders (hf://medarc/walnut); SynthSeg 2.0; NeuroQuant volumes as released. Methods follow Devanarayan et al. 2025 (prognostic covariates in A4). Code: github.com/SophontAI/a4-learn-eval.</span>
+  <span>Sources: ATRI A4/LEARN release; walnut sMRI encoders (hf://medarc/walnut); SynthSeg 2.0; NeuroQuant volumes. Prognostic motivation: <a href="https://doi.org/10.1002/alz.70702">Devanarayan et al. 2025</a>; this eval uses different probes and scoring, not a reproduction of that paper. <a href="https://github.com/SophontAI/a4-learn-eval">Code and README</a>.</span>
   <span id="foot-config"></span>
 </footer>
 </div>
@@ -384,9 +386,9 @@ const COLS = [
   { t: "B3", mode: "alone", head: "B3", name: "p-tau217", unit: "R²", d: 3 },
   { t: "S1", mode: "alone", head: "S1", name: "Age", unit: "R²", d: 2 },
   { t: "S2", mode: "alone", head: "S2", name: "Hippocampus", unit: "R²", d: 2 },
-  { c: "d", ci: "d_ci", head: "C1", name: "AD-specific change", unit: "d", d: 2 },
+  { c: "d", ci: "d_ci", head: "C1", name: "A4–LEARN change", unit: "d", d: 2 },
   { c: "rho_decline", ci: "rho_ci", head: "C2", name: "Tracks decline", unit: "ρ", d: 2 },
-  { c: "snr", ci: "snr_ci", head: "C3", name: "Over retest noise", unit: "ratio", d: 2 },
+  { c: "snr", ci: "snr_ci", head: "C3", name: "Over short-interval SD", unit: "ratio", d: 2 },
 ];
 const COL = k => COLS.find(c => c.head === k);
 // one cell: value, its 95% interval, and the paired difference from the reference with its interval
@@ -427,7 +429,7 @@ function scorecard() {
   const host = document.getElementById("score"); host.replaceChildren();
   const t = h("table", { class: "score" }, host), hr = h("tr", {}, h("thead", {}, t));
   h("th", { class: "rep", scope: "col" }, hr, "Representation");
-  for (const c of COLS) { const th = h("th", { class: "n", scope: "col", title: c.t ? R.tasks[c.t].description : "AD-specific change (A4 vs LEARN)" }, hr, c.head); h("small", {}, th, `${c.name} · ${c.unit}`); }
+  for (const c of COLS) { const th = h("th", { class: "n", scope: "col", title: c.t ? R.tasks[c.t].description : "Longitudinal change (A4 vs LEARN)" }, hr, c.head); h("small", {}, th, `${c.name} · ${c.unit}`); }
   const tb = h("tbody", {}, t), cr = h("tr", { class: "grp" }, tb), ct = h("td", { class: "rep" }, cr, "Chance");
   h("small", {}, ct, `${R.meta.null.draws} random ${fi(R.meta.null.dims)}-d representations, mean`);
   for (const col of COLS) { const n = R.meta.null[key(col)], d = h("td", { class: "v" }, cr, n ? fs(n.mean, col.d) : "–"); if (n) hover(d, `Chance level — ${col.head} ${col.name}`, [{ v: `${fs(n.mean, col.d)} ± ${f(n.sd, col.d)}`, l: "mean ± SD over random representations" }]); }
@@ -454,10 +456,10 @@ scorecard();
 (() => {  // eval health: does the eval behave like a measuring instrument?
   const host = document.getElementById("checks"), add = (cls, tag, html) => { const d = h("div", {}, host); h("span", { class: `pill ${cls}` }, d, tag); const p = h("span", {}, d); p.innerHTML = html; };
   const N = M.null, ch = (k, d) => `<span class="num">${fs(N[k].mean, d)} ± ${f(N[k].sd, d)}</span>`;
-  add(Math.abs(N["P1 base"].mean) < 0.005 ? "good" : "crit", "chance", `${N.draws} random ${fi(N.dims)}-d representations, run through the same probes, score: P1 gain ${ch("P1 base", 3)}, P1 scan alone R² ${ch("P1 alone", 3)}, P3 scan alone AUROC ${ch("P3 alone", 3)}, C1 ${ch("C d", 2)}, C2 ${ch("C rho_decline", 2)} (mean ± SD). Stacking does not reward noise, and the change index is unbiased. A bootstrap of fixed fits misses this chance variation; it is small for R² but about doubles the noise of AUROC and the change tasks, so every interval and detectable difference on this page includes it. A single random draw can land in the tail of these distributions, so the page shows this calibrated chance level instead of one random representation.`);
+  add(Math.abs(N["P1 base"].mean) < 0.005 ? "good" : "crit", "chance", `${N.draws} random ${fi(N.dims)}-d representations, run through the same probes, score: P1 gain ${ch("P1 base", 3)}, P1 scan alone R² ${ch("P1 alone", 3)}, P3 scan alone AUROC ${ch("P3 alone", 3)}, C1 ${ch("C d", 2)}, C2 ${ch("C rho_decline", 2)} (mean ± SD). The mean checks for systematic gains from noise. Variation across random probes approximately calibrates intervals for differences from SynthSeg and detectable differences; ordinary score/gain intervals remain bootstrap-only. C3 has no random-probe calibration. These nulls are not dimension-matched to every representation.`);
   add(M.p1_reliability >= 0.8 ? "good" : "warn", "target", `The P1 decline rate is reliable: split-half reliability <span class="num">${f(M.p1_reliability, 2)}</span> (alternate visits, Spearman–Brown), mean <span class="num">${fs(M.p1_slope_mean, 2)}</span> PACC points per year, SD <span class="num">${f(M.p1_slope_sd, 2)}</span>.`);
   const r1 = M.resolution["P1 base"];
-  add(r1.mdd_dev <= 0.03 ? "good" : "warn", "dev", `On dev the headline detects a <span class="num">${f(r1.mdd_dev, 3)}</span> R² difference from the reference with 80% power. Fold-to-fold SD is <span class="num">${f(r1.sd_repeats, 3)}</span>, so partition noise is small next to participant sampling.`);
+  add(r1.mdd_dev <= 0.03 ? "good" : "warn", "dev", `Estimated dev resolution is <span class="num">${f(r1.mdd_dev, 3)}</span> R² relative to the reference at 80% power. Across-repeat SD is <span class="num">${f(r1.sd_repeats, 3)}</span>.`);
   add(r1.mdd_test <= 0.03 ? "good" : "warn", "test", `The test split resolves <span class="num">${f(r1.mdd_test, 3)}</span>, about ${f(r1.mdd_test / r1.mdd_dev, 1)}× coarser. Use it to confirm direction and rough size; confirm gate-sized gains on an external cohort.`);
   const rt = M.rank_transfer["P1 base"];
   add(rt >= 0.7 ? "good" : "warn", "transfer", `Dev and test rank the frozen representations alike on the headline: Spearman <span class="num">${f(rt, 2)}</span>.`);
@@ -495,19 +497,19 @@ for (const [id, heads, minW] of [["f1", ["P1", "P1 scan"], 720], ["f2", ["P1t", 
   document.getElementById("f1-note").textContent = `Clinical + p-tau217 (+ arm) alone reaches R² ${f(b.dev, 3)} on dev (${T.P1.n_dev} participants) and ${f(b.test, 3)} on test (${T.P1.n_test}). Left: the gain when the scan is stacked on top. Right: the scan with nothing else.`;
   document.getElementById("f2-note").textContent = `In the tau substudy (${T.P1t.n_dev} dev participants), tau PET itself adds ${fs(tb.tau_gain.dev, 3)} R² (95% CI ${f(tb.tau_gain.dev_ci[0], 3)} to ${f(tb.tau_gain.dev_ci[1], 3)}) to clinical + p-tau217 (R² ${f(nt.dev, 3)} → ${f(tb.dev, 3)}); P1t asks what the scan adds after that. P2 is the published Devanarayan target, scored here on both arms. P3: clinical + p-tau217 alone reaches AUROC ${f(p3.dev, 3)}.`;
   const C0 = CHG[REF].dev;
-  document.getElementById("f5-note").textContent = `C1: age-adjusted A4 − LEARN separation in A4 standard deviations (${C0.n_a4} A4 and ${C0.n_learn} LEARN dev participants with both scans). With d, a trial needs 2 × 2.80² / (0.25 d)² participants per arm to detect a 25% slowing of the AD-specific change: ${fi(C0.n_per_arm_25pct)} for ${REF}. C2: Spearman correlation with PACC decline in A4. C3: separation divided by the SD of the same index on week-12 change (${C0.n_week12} A4 participants scanned at weeks 0 and 12).`;
+  document.getElementById("f5-note").textContent = `C1: age-adjusted A4 − LEARN separation in A4 standard deviations (${C0.n_a4} A4 and ${C0.n_learn} LEARN dev participants with both scans). A hypothetical 25% reduction gives 2 × 2.80² / (0.25 d)² participants per arm: ${fi(C0.n_per_arm_25pct)} for ${REF}, assuming equal variance and no attrition. This does not validate a treatment endpoint. C2: Spearman correlation with negative PACC slope in A4. C3: separation divided by the SD of screening-to-week-12 change (${C0.n_week12} A4 participants); this includes short-term change as well as measurement noise.`;
 })();
 
 // ---------- eval quality ----------
 (() => {
   const keys = COLS.map(c => [c, c.c ? `C ${c.c}` : `${c.t} ${c.mode}`]);
-  table("t-res", [{ l: "Task" }, { l: "Metric" }, { l: "n dev / test", n: 1 }, { l: "Detectable difference, dev", n: 1 }, { l: "Detectable difference, test", n: 1 }, { l: "Fold SD", n: 1 }, { l: "Dev–test rank agreement", n: 1 }],
+  table("t-res", [{ l: "Task" }, { l: "Metric" }, { l: "n dev / test", n: 1 }, { l: "Detectable difference, dev", n: 1 }, { l: "Detectable difference, test", n: 1 }, { l: "Repeat SD", n: 1 }, { l: "Dev–test rank agreement", n: 1 }],
     keys.map(([c, k]) => { const r = M.resolution[k] || {}, T = c.t ? R.tasks[c.t] : null, C0 = CHG[REF];
       return [`${c.head} · ${c.name}`, c.unit,
         T ? `${fi(T.n_dev)} / ${fi(T.n_test)}` : `${fi(C0.dev.n_a4 + C0.dev.n_learn)} / ${C0.test ? fi(C0.test.n_a4 + C0.test.n_learn) : "–"}`,
         f(r.mdd_dev, c.d) + (r.mdd_bootstrap != null && r.mdd_bootstrap !== r.mdd_dev ? ` (bootstrap ${f(r.mdd_bootstrap, c.d)})` : ""), r.mdd_test == null ? "–" : f(r.mdd_test, c.d), r.sd_repeats == null ? "–" : f(r.sd_repeats, 3), M.rank_transfer[k] == null ? "–" : f(M.rank_transfer[k], 2)]; }));
   const D = Object.entries(M.design), P = R.design_pair;
-  document.getElementById("f7-note").textContent = `${P[0]} vs ${P[1]}, stacked on clinical + p-tau217, dev participants. The detectable difference shrinks as the target gets more reliable and more participants count. Placebo-only scoring of the week-240 change (the published protocol) needs a difference about ${f(D[0][1].mdd / D[2][1].mdd, 1)}× larger than the P1 slope design to be detected.`;
+  document.getElementById("f7-note").textContent = `${P[0]} vs ${P[1]}, stacked on clinical + p-tau217, dev participants. Bootstrap-only diagnostic on predictions averaged across repeats. Placebo scoring of week-240 change (inspired by Devanarayan; different probes and sample) has an estimated detectable difference ${f(D[0][1].mdd / D[2][1].mdd, 1)}× that of the P1 slope design. This is not a prospective sample-size guarantee.`;
   const hi = Math.max(...D.map(([, d]) => d.mdd)) * 1.15;
   chart("f7", (host, W) => rows(host, W, { lw: 300, rh: 34, rows: D.map(([k, d]) => ({ label: k, sub: `${fi(d.n)} participants`, marks: [[{ c: "--accent", bar: true, label: f(d.mdd, 3), est: d.mdd, tip: [{ v: f(d.mdd, 3), l: "detectable ΔR², 80% power" }, { v: `${fs(d.delta, 3)} (z ${fs(d.z, 2)})`, l: "observed difference" }, { v: f(d.se, 4), l: "paired bootstrap SE" }] }]] })),
     panels: [{ x: [0, hi], xt: nice(0, hi, 4), zero: 0, label: "Detectable difference in R² (80% power)", xf: v => f(v, decimals(nice(0, hi, 4))) }] }), 560);

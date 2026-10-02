@@ -3,8 +3,8 @@
 # The study. A4 ("Anti-Amyloid Treatment in Asymptomatic Alzheimer's") screened about 4,500 cognitively unimpaired
 # people aged 65-85 with amyloid PET. The 1,169 with elevated brain amyloid (early, preclinical Alzheimer's) were
 # randomized to the anti-amyloid antibody solanezumab or placebo for 240 weeks; the drug did not slow decline.
-# LEARN followed 538 people who screened amyloid-negative, untreated, with the same tests and MRI schedule, as a
-# reference for normal ageing. Visits are numbered: 1-5 screening, 6 = randomization (week 0), then about every
+# LEARN followed 538 people who screened amyloid-negative, untreated, as an observational ageing comparison, with
+# MRI at baseline and week 240. Visits are numbered: 1-5 screening, 6 = randomization (week 0), then about every
 # 12 weeks up to 66 = week 240, the end of the placebo-controlled ("blinded") phase; an open-label phase followed.
 # LEARN uses the same numbers for its matched visits.
 #

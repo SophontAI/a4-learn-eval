@@ -37,3 +37,8 @@ requires-dist = ["torch", "numpy", "nibabel", "einops", "jaxtyping", "timm", "hu
 
 [tool.uv.extra-build-variables]
 smri-fm = { SETUPTOOLS_SCM_PRETEND_VERSION = "0.1.0" }  # a fixed version, so the metadata above applies
+
+[dependency-groups]
+docs = [
+    "matplotlib>=3.10,<4",
+]
