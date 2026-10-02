@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+# A4/LEARN data are under a data use agreement: never commit participant-level files or results
+*.parquet
+*.csv
+*.json
+*.npz
+*.nii
+*.nii.gz
+*.log
+check_*.py

@@ -1,0 +1,39 @@
+[project]
+name = "a4-learn-eval"
+version = "1.0.0"
+description = "Internal eval of structural-MRI representations on the A4/LEARN preclinical Alzheimer's study"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "numpy",
+    "pandas>=2.3,<3",  # pandas 3 makes string indexes Arrow-backed, which scikit-learn's splitters reject; v1 was frozen on 2.3
+    "pyarrow",
+    "scipy",
+    "scikit-learn",
+    "torch",
+    "nibabel",
+    "antspyx>=0.6.3",
+    "synthseg[torch]",
+    "smri-fm",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[tool.uv.sources]
+# PyTorch port of SynthSeg 2.0 (MedARC fork). Its weights download from the fork's GitHub release on first use.
+synthseg = { git = "https://github.com/MedARC-AI/SynthSeg", rev = "2690d9ac9ae28323d03043406cd21db0a8741547" }
+# Model code for the walnut sMRI foundation models (fomo_tune.backbone.load_backbone): a clone of
+# github.com/MedARC-AI/smri-fm at commit 11e53ab on the cluster's shared storage. (Installing straight from GitHub
+# would also check out an LFS submodule, and the cluster has no git-lfs.) Point it at another checkout for newer models.
+smri-fm = { path = "/data/paul/a4/smri-fm", editable = false }
+
+# smri-fm declares its whole training stack and Python < 3.13; embed.py only uses its model code, which needs these.
+[[tool.uv.dependency-metadata]]
+name = "smri-fm"
+version = "0.1.0"
+requires-python = ">=3.11"
+requires-dist = ["torch", "numpy", "nibabel", "einops", "jaxtyping", "timm", "huggingface-hub"]
+
+[tool.uv.extra-build-variables]
+smri-fm = { SETUPTOOLS_SCM_PRETEND_VERSION = "0.1.0" }  # a fixed version, so the metadata above applies

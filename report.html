@@ -1,0 +1,516 @@
+<title>A4/LEARN Imaging Eval</title>
+<meta name="description" content="Internal eval for structural-MRI representations on A4/LEARN: prognosis, biology, anatomy and AD-specific change against conventional volumetrics.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: the A4/LEARN readout's design system (same tokens, type and chart kit), arranged as an instrument panel:
+   a scorecard first, then one figure per task family, then the eval's own resolution and its frozen protocol.
+   Colour encodes representation family (conventional volumetrics, foundation model), status vs reference, and chance (grey). */
+:root {
+  --paper: #f3f4f2;
+  --surface: #fcfcfb;
+  --ink: #141817;
+  --ink-2: #4b5351;
+  --muted: #7b827f;
+  --rule: #d9dcd8;
+  --grid: #e6e8e4;
+  --axis: #b9bdb7;
+  --accent: #4a3aa7;
+  --accent-soft: #e9e7f7;
+  --s0: #898781;
+  --vol: #eb6834;
+  --fm1: #4a3aa7;
+  --good: #0ca30c;
+  --warn: #c98500;
+  --crit: #d03b3b;
+  --f-head: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0f1211; --surface: #1a1a19; --ink: #f0f2f1; --ink-2: #c1c8c5; --muted: #8c9390; --rule: #2d312f; --grid: #282b2a; --axis: #3d423f;
+    --accent: #9085e9; --accent-soft: #24213d; --s0: #898781; --vol: #d95926; --fm1: #9085e9;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0f1211; --surface: #1a1a19; --ink: #f0f2f1; --ink-2: #c1c8c5; --muted: #8c9390; --rule: #2d312f; --grid: #282b2a; --axis: #3d423f;
+  --accent: #9085e9; --accent-soft: #24213d; --s0: #898781; --vol: #d95926; --fm1: #9085e9;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16.5px; line-height: 1.6; padding-inline: 18px; padding-block: 36px 72px; }
+.wrap { max-width: 1060px; margin: 0 auto; display: grid; gap: 34px; }
+.wrap, section, figure, .stack, .sechead { grid-template-columns: minmax(0, 1fr); }  /* wide tables and charts scroll inside their own boxes */
+.col { max-width: 72ch; }
+h1, h2, h3 { font-family: var(--f-head); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: -0.005em; }
+h1 { font-size: clamp(32px, 5vw, 46px); line-height: 1.05; }
+h2 { font-size: 27px; line-height: 1.15; }
+h3 { font-size: 18px; line-height: 1.3; font-family: var(--f-body); }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, summary:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+pre { margin: 0; overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); padding: 12px 14px; font-family: var(--f-mono); font-size: 13px; line-height: 1.5; }
+strong { font-weight: 600; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+header.top { display: grid; gap: 12px; padding-bottom: 20px; border-bottom: 2px solid var(--ink); }
+.dek { font-size: 19px; line-height: 1.5; color: var(--ink-2); max-width: 70ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 20px; font-family: var(--f-mono); font-size: 12.5px; color: var(--ink-2); }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--f-mono); font-size: 13px; }
+nav.toc a { text-decoration: none; }
+nav.toc a:hover { text-decoration: underline; }
+section { display: grid; gap: 18px; scroll-margin-top: 18px; }
+.sechead { display: grid; gap: 6px; border-top: 1px solid var(--rule); padding-top: 22px; }
+.stack { display: grid; gap: 12px; }
+ul, ol { margin: 0; padding-left: 1.25em; display: grid; gap: 8px; }
+li::marker { color: var(--muted); }
+.num { font-family: var(--f-mono); font-size: 0.9em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 12px; padding: 2px 9px 2px 7px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); white-space: nowrap; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--s0)); }
+.pill.good { --dot: var(--good); } .pill.warn { --dot: var(--warn); } .pill.crit { --dot: var(--crit); }
+.checks { display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--rule); padding: 16px 18px; }
+.checks > div { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 12px; align-items: baseline; font-size: 15px; }
+figure { margin: 0; display: grid; gap: 10px; }
+figcaption { display: grid; gap: 4px; max-width: 86ch; }
+.figno { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.figtitle { font-weight: 600; font-size: 16.5px; line-height: 1.4; }
+.fignote { font-size: 14px; color: var(--ink-2); line-height: 1.5; max-width: 86ch; }
+.panel { background: var(--surface); border: 1px solid var(--rule); padding: 14px 14px 10px; display: grid; gap: 10px; min-width: 0; }
+.chart { width: 100%; min-height: 40px; position: relative; }
+.chart svg { display: block; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13.5px; color: var(--ink-2); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--c); }
+.legend i.dot { width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--c); }
+.legend i.hollow { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--c); }
+.legend i.dash { width: 18px; border-top: 1.5px dashed var(--c); }
+.legend i.band { width: 18px; height: 10px; border: 0; background: var(--c); opacity: 0.3; }
+.ctrl { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.seg button { font: 500 13px var(--f-body); color: var(--ink-2); background: transparent; border: 0; padding: 5px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); }
+.callout { padding: 14px 16px; border-left: 3px solid var(--accent); background: var(--surface); font-size: 15.5px; max-width: 80ch; }
+details.tv { font-size: 13.5px; }
+details.tv summary { cursor: pointer; color: var(--ink-2); font-family: var(--f-mono); font-size: 12.5px; width: max-content; }
+.tbl { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; line-height: 1.4; }
+th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--grid); }
+th { font-family: var(--f-body); font-weight: 600; font-size: 12.5px; color: var(--ink-2); background: var(--paper); white-space: nowrap; }
+td.n, th.n { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+table.score { border-collapse: separate; border-spacing: 0; font-size: 13px; }
+table.score th, table.score th.n { vertical-align: bottom; white-space: normal; min-width: 86px; line-height: 1.25; font-family: var(--f-body); text-align: right; }
+table.score th small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+table.score th.rep, table.score td.rep { position: sticky; left: 0; z-index: 1; min-width: 190px; max-width: 220px; border-right: 1px solid var(--rule); }
+table.score td.rep { background: var(--surface); }
+table.score td.rep small { display: block; color: var(--muted); font-size: 11.5px; }
+table.score td.v { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.score td.v b { font-weight: 400; font-size: 10px; margin-left: 3px; }
+table.score td.better { background: color-mix(in srgb, var(--good) 15%, var(--surface)); }
+table.score td.worse { background: color-mix(in srgb, var(--crit) 13%, var(--surface)); }
+table.score tr.ref td { font-weight: 600; }
+table.score tr.ref td.rep { box-shadow: inset 3px 0 0 var(--ink); }
+table.score tr.grp td { background: var(--paper); color: var(--ink-2); font-size: 12px; font-family: var(--f-mono); letter-spacing: 0.04em; padding-top: 10px; }
+table.score tr.mdd td { background: var(--paper); color: var(--ink-2); font-size: 12px; }
+table.score tr.mdd td.rep { background: var(--paper); }
+svg text { font-family: var(--f-body); }
+svg .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+svg .lab { font-size: 12px; fill: var(--ink-2); }
+svg .labstrong { font-size: 12.5px; fill: var(--ink); font-weight: 600; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .zero { stroke: var(--axis); stroke-width: 1.2; }
+svg .refl { stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 8px 10px; font-size: 13px; line-height: 1.45; max-width: 320px; border-radius: 4px; }
+.tip .tt { font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+.tip .tr { display: flex; align-items: center; gap: 7px; }
+.tip .tr i { width: 12px; height: 0; border-top: 2px solid var(--c); flex: none; }
+.tip .tr b { font-family: var(--f-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
+.tip .tr span { color: var(--ink-2); }
+footer { border-top: 1px solid var(--rule); padding-top: 16px; font-size: 13px; color: var(--ink-2); display: grid; gap: 6px; }
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .checks > div { grid-template-columns: 1fr; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Sophont · neuro · internal eval v1, frozen 2026-10-01</div>
+  <h1>A4/LEARN Imaging Eval</h1>
+  <p class="dek">Scores any representation of a T1-weighted brain MRI on what a preclinical Alzheimer's trial needs from the scan: prognosis beyond clinical data and plasma p-tau217, the biology behind it, anatomy, and change that is specific to Alzheimer's disease. Every number is paired against conventional volumetrics on the same scans, so foundation-model checkpoints can be compared without rewarding noise.</p>
+  <div class="meta"><span id="meta-run"></span><span id="meta-split"></span><span>Code: github.com/SophontAI/a4-learn-eval</span><span>Aggregate statistics only (A4 data use agreement)</span></div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <a href="#glance">At a glance</a><a href="#prognosis">Prognosis</a><a href="#biology">Biology and anatomy</a><a href="#change">Change</a><a href="#quality">Eval quality</a><a href="#protocol">Protocol</a><a href="#glossary">Glossary</a>
+</nav>
+
+<section id="glance" aria-labelledby="h-glance">
+  <div class="sechead">
+    <h2 id="h-glance">At a glance</h2>
+    <p class="col">One row per representation and one column per task, each showing that task's headline number. Gain columns are the improvement over clinical data and plasma p-tau217 (P1t also includes tau PET). Shading and arrows mark representations whose paired 95% interval against <strong id="ref-name"></strong> excludes zero: green ▲ is better, red ▼ is worse. Unshaded cells cannot be told apart from the reference. With about 150 comparisons, a handful of marks will appear by chance, so trust patterns across related tasks more than any single cell, and make decisions on the P1 headline.</p>
+  </div>
+  <div class="ctrl">
+    <div class="seg" role="group" aria-label="Which split to show">
+      <button type="button" id="sp-dev" aria-pressed="true">Dev, cross-validated</button>
+      <button type="button" id="sp-test" aria-pressed="false">Test, frozen representations only</button>
+    </div>
+    <span class="fignote" id="score-note"></span>
+  </div>
+  <div class="tbl" id="score"></div>
+  <div class="checks" id="checks" aria-label="Eval health checks"></div>
+</section>
+
+<section id="prognosis" aria-labelledby="h-prog">
+  <div class="sechead">
+    <h2 id="h-prog">Prognosis</h2>
+    <p class="col">Does the scan predict cognitive decline beyond what a trial already measures at baseline? The primary target is each participant's PACC slope over every blinded visit (both arms, arm as a covariate), which is more reliable and uses more participants than the week-240 change scored on placebo alone.</p>
+  </div>
+  <figure>
+    <figcaption><span class="figno">Figure 1 · headline</span><span class="figtitle">P1: PACC decline, gain over clinical + p-tau217, and from the scan alone</span>
+      <span class="fignote" id="f1-note"></span></figcaption>
+    <div class="panel"><div class="chart" id="f1"></div></div>
+  </figure>
+  <figure>
+    <figcaption><span class="figno">Figure 2</span><span class="figtitle">Secondary prognostic targets: on top of tau PET, at week 240, and CDR progression</span>
+      <span class="fignote" id="f2-note"></span></figcaption>
+    <div class="panel"><div class="chart" id="f2"></div></div>
+  </figure>
+</section>
+
+<section id="biology" aria-labelledby="h-bio">
+  <div class="sechead">
+    <h2 id="h-bio">Biology and anatomy</h2>
+    <p class="col">How much of the disease biology and basic anatomy can be read from the scan alone. Anatomy tasks are sanity checks: a representation that loses here has a preprocessing or pooling problem before it has a prognosis problem.</p>
+  </div>
+  <figure>
+    <figcaption><span class="figno">Figure 3</span><span class="figtitle">B1–B3: tau PET, amyloid PET and plasma p-tau217 from the scan</span>
+      <span class="fignote">Cross-validated R² in A4. Tau PET comes from the substudy, so its intervals are the widest.</span></figcaption>
+    <div class="panel"><div class="chart" id="f3"></div></div>
+  </figure>
+  <figure>
+    <figcaption><span class="figno">Figure 4</span><span class="figtitle">S1–S2: age and NeuroQuant hippocampal volume from the scan</span>
+      <span class="fignote">A4 and LEARN together. NeuroQuant volumes are not scored on S2 because they contain the target.</span></figcaption>
+    <div class="panel"><div class="chart" id="f4"></div></div>
+  </figure>
+</section>
+
+<section id="change" aria-labelledby="h-change">
+  <div class="sechead">
+    <h2 id="h-change">AD-specific change</h2>
+    <p class="col">A treatment endpoint has to move with the disease, not with ageing or scanner drift. Week-240 minus baseline change in each representation is compared between amyloid-positive A4 and amyloid-negative LEARN participants, who were scanned at the same sites over the same years. Each feature's ageing slope is removed, a cross-fitted ridge discriminant turns the change into one index, and the index is scored on held-out participants.</p>
+  </div>
+  <figure>
+    <figcaption><span class="figno">Figure 5</span><span class="figtitle">C1–C3: separation from amyloid-negative ageing, tracking of decline, and retest noise</span>
+      <span class="fignote" id="f5-note"></span></figcaption>
+    <div class="panel"><div class="chart" id="f5"></div></div>
+  </figure>
+</section>
+
+<section id="quality" aria-labelledby="h-quality">
+  <div class="sechead">
+    <h2 id="h-quality">How good is the eval itself</h2>
+    <p class="col">An eval is only useful for hill-climbing if it can tell real differences from noise. These numbers come from the same paired bootstrap as the scores: the smallest difference from the reference each task detects with 80% power, how much the score moves when only the cross-validation folds change, and whether the dev ranking holds on the untouched test split.</p>
+  </div>
+  <figure>
+    <figcaption><span class="figno">Figure 6</span><span class="figtitle">Resolution by task</span>
+      <span class="fignote">Detectable difference = 2.80 × √(SE² + 2 SD²), where SE is the median paired-bootstrap SE of (representation − reference) and SD is the chance variation of one representation's score, measured by running random representations through the same probe (bootstrap-only value in brackets where they differ). Fold SD is the median standard deviation of the score across the ten cross-validation repeats. Rank agreement is the Spearman correlation of dev and test scores across frozen representations.</span></figcaption>
+    <div id="t-res"></div>
+  </figure>
+  <figure>
+    <figcaption><span class="figno">Figure 7</span><span class="figtitle">Why P1 is the headline: the same comparison under three target designs</span>
+      <span class="fignote" id="f7-note"></span></figcaption>
+    <div class="panel"><div class="chart" id="f7"></div></div>
+  </figure>
+</section>
+
+<section id="protocol" aria-labelledby="h-protocol">
+  <div class="sechead">
+    <h2 id="h-protocol">Protocol</h2>
+    <p class="col">Frozen on 2026-10-01. Changing any of these rules makes a new eval version, and results across versions are not comparable.</p>
+  </div>
+  <div class="stack col">
+    <ul>
+      <li><strong>Participants.</strong> A4 mITT and LEARN participants with a baseline T1w scan that passed registration QC (Dice ≥ 0.9 with the template brain) and NeuroQuant volumes: <span class="num" id="p-n"></span>. Each task uses the subset that has its target, the same subset for every representation.</li>
+      <li><strong>Split.</strong> One 75/25 dev/test split stratified by cohort, arm, APOE ε4 and tau-substudy membership, plus ten fixed 5-fold assignments of dev. The split file must hash to <span class="num" id="p-sha"></span>, so it cannot drift.</li>
+      <li><strong>Probes.</strong> Standardized ridge with a fixed penalty grid for a single block; when clinical data are present, one ridge per block combined by stacking, so a wide embedding cannot swamp fifteen clinical features. No tuning per representation.</li>
+      <li><strong>Targets.</strong> P1: least-squares PACC slope over every blinded visit (at least 4 visits over 2 years), adjusted for test form. P2: PACC change at week 240 in completers. P3: ATRI's CDR-global progression event by week 252 against event-free follow-up to week 228 or later. Clinical block: age, sex, education, APOE ε4, baseline PACC and its components, MMSE, CFI, CDR-SB, ADL, C3 and log plasma p-tau217.</li>
+      <li><strong>Scoring.</strong> Dev scores average the ten repeats of out-of-fold predictions. A participant bootstrap (2,000 draws, shared by every representation) gives the intervals and paired differences. Differences are also widened by the chance variation of a fitted probe, measured once per run by scoring 24 random representations on every task. Test scores come from one fit on all of dev.</li>
+      <li><strong>Test discipline.</strong> Test is scored only for representations listed in <code>FROZEN</code> in <code>eval.py</code>. Add a checkpoint there once, when it is final, and report that number.</li>
+    </ul>
+    <div class="callout"><strong>Using it to hill-climb.</strong> Develop against the dev scores. A checkpoint improves on another only when the paired interval excludes zero on P1 (gain or scan alone) without losing on S1–S2. Check B1 and C1–C3 for where the gain comes from. Gate-sized gains (about +0.03 R² over volumetrics) are detectable on dev but not reliably on the 25% test split, so confirm them on an external cohort (ADNI) before claiming them.</div>
+    <h3>Evaluate a new checkpoint</h3>
+    <pre>1. Add the checkpoint to MODELS in embed.py, then embed every cached scan (minutes on 8 GPUs):
+   sbatch -p n --qos=high --account=sophont --gres=gpu:1 -c 16 --mem=96G --array=0-7 \
+     -o /data/paul/a4/mri/logs/embed_%a.log \
+     --wrap 'for j in 0 1 2; do SHARD=$((SLURM_ARRAY_TASK_ID * 3 + j)) uv run python embed.py &amp; done; wait'
+2. Add the same name to MODELS in eval.py and run the eval (about 6 min on 64 CPUs):
+   sbatch -p c --qos=high --account=sophont -c 64 --mem=256G -o /data/paul/a4/eval/eval.log --wrap "uv run python eval.py"
+3. Read /data/paul/a4/eval/report.html. Score test only after adding the final checkpoint to FROZEN.</pre>
+  </div>
+</section>
+
+<section id="glossary" aria-labelledby="h-glossary">
+  <div class="sechead">
+    <h2 id="h-glossary">Glossary</h2>
+  </div>
+  <div class="stack col">
+    <ul>
+      <li><strong>A4.</strong> The Anti-Amyloid Treatment in Asymptomatic Alzheimer's study: 1,169 cognitively unimpaired people aged 65–85 with elevated brain amyloid, randomized to solanezumab or placebo for 240 weeks. The drug did not slow decline.</li>
+      <li><strong>LEARN.</strong> 538 people who screened amyloid-negative, followed untreated with the same tests and MRI schedule: a reference for normal ageing.</li>
+      <li><strong>Amyloid and tau.</strong> The two proteins that define Alzheimer's disease. Amyloid plaques build up first; tau tangles follow and track symptoms more closely. Both are measured with PET; amyloid load is reported in centiloids, tau as SUVR (uptake relative to a reference region).</li>
+      <li><strong>Plasma p-tau217.</strong> A blood test for Alzheimer's pathology, the strongest single predictor of decline in this population. It is part of the clinical baseline, so a scan only counts when it adds to it.</li>
+      <li><strong>PACC.</strong> Preclinical Alzheimer Cognitive Composite, the trial's primary outcome: the mean of four z-scored memory and attention tests (0 = average at baseline, lower = worse). Placebo participants declined about 1.1 points over 240 weeks.</li>
+      <li><strong>CDR.</strong> Clinical Dementia Rating: 0 = normal, 0.5 = very mild impairment, 1 or more = dementia. CDR-SB is its sum-of-boxes score.</li>
+      <li><strong>mITT.</strong> Modified intention-to-treat: randomized participants with a baseline and at least one later assessment.</li>
+      <li><strong>Sessions.</strong> MRI visit codes: A4 004 = screening (baseline), 009 = week 12, 066 = week 240; LEARN 006 = baseline, 066 = week 240.</li>
+      <li><strong>Representation.</strong> One vector of numbers per scan: regional volumes (SynthSeg, NeuroQuant) or pooled foundation-model tokens (walnut). The eval fits the same probe to every representation.</li>
+      <li><strong>R², ΔR², AUROC.</strong> Share of the target's variance a model explains; the extra share a scan adds; the chance that a randomly chosen progressor scores higher than a non-progressor (0.5 = coin flip).</li>
+      <li><strong>d.</strong> A standardized difference: how far apart two groups' averages are, in standard deviations.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <span>Sources: ATRI A4/LEARN release (participant tables and T1w MRI on /data); walnut sMRI encoders (hf://medarc/walnut); SynthSeg 2.0; NeuroQuant volumes as released. Methods follow Devanarayan et al. 2025 (prognostic covariates in A4). Code: github.com/SophontAI/a4-learn-eval.</span>
+  <span id="foot-config"></span>
+</footer>
+</div>
+
+<script id="results" type="application/json">/*RESULTS*/</script>
+<script>
+const R = JSON.parse(document.getElementById("results").textContent);
+const NS = "http://www.w3.org/2000/svg";
+const s = (tag, a = {}, p) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const h = (tag, a = {}, p, text) => { const e = document.createElement(tag); for (const k in a) e.setAttribute(k, a[k]); if (text != null) e.textContent = text; if (p) p.appendChild(e); return e; };
+const txt = (svg, x, y, str, cls = "tick", anchor = "start", extra = {}) => { const t = s("text", { x, y, class: cls, "text-anchor": anchor, ...extra }, svg); t.textContent = str; return t; };
+const f = (v, d = 2) => (v == null || Number.isNaN(v)) ? "–" : (v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
+const fs = (v, d = 2) => (v == null || Number.isNaN(v)) ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d);
+const fi = v => v == null || !Number.isFinite(v) ? "–" : Math.round(v).toLocaleString("en-US");
+const decimals = ticks => [0, 1, 2, 3, 4].find(d => Math.abs((ticks[1] - ticks[0]) * 10 ** d - Math.round((ticks[1] - ticks[0]) * 10 ** d)) < 1e-6) ?? 4;  // fewest decimals that keep tick labels distinct
+const lin = (d0, d1, r0, r1) => { const k = (r1 - r0) / (d1 - d0); const g = v => r0 + (v - d0) * k; g.inv = y => d0 + (y - r0) / k; return g; };
+function nice(lo, hi, n = 5) {
+  const step0 = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(step0)), e = step0 / mag;
+  const step = mag * (e >= 7.5 ? 10 : e >= 3.5 ? 5 : e >= 1.5 ? 2 : 1), t = [];
+  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) t.push(+v.toFixed(10));
+  return t;
+}
+
+// ---------- tooltip (values lead, labels follow; text inserted with textContent) ----------
+const tip = h("div", { class: "tip", role: "tooltip" }, document.body); tip.hidden = true;
+function showTip(ev, title, rows) {
+  tip.replaceChildren(); h("div", { class: "tt" }, tip, title);
+  for (const r of rows) { const row = h("div", { class: "tr" }, tip); if (r.c) h("i", { style: `--c:var(${r.c})` }, row); h("b", {}, row, r.v); if (r.l) h("span", {}, row, r.l); }
+  tip.hidden = false;
+  const bx = ev.clientX ?? (ev.target.getBoundingClientRect().left + 10), by = ev.clientY ?? ev.target.getBoundingClientRect().top;
+  tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, bx + 14) + "px";
+  tip.style.top = Math.max(8, by - tip.offsetHeight - 12) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+function hover(el, title, rows) {
+  el.setAttribute("tabindex", "0");
+  el.addEventListener("pointermove", ev => showTip(ev, title, rows));
+  el.addEventListener("focus", ev => showTip(ev, title, rows));
+  el.addEventListener("pointerleave", hideTip); el.addEventListener("blur", hideTip);
+}
+
+// ---------- shared pieces ----------
+function legend(id, items) { const L = document.getElementById(id); L.replaceChildren(); for (const it of items) { const sp = h("span", {}, L); h("i", { class: it.k || "", style: `--c:var(${it.c})` }, sp); sp.append(it.l); } }
+function table(host, cols, rows) {
+  const d = typeof host === "string" ? document.getElementById(host) : host;
+  const wrap = h("div", { class: "tbl" }, d), t = h("table", {}, wrap), tr = h("tr", {}, h("thead", {}, t));
+  for (const c of cols) h("th", { class: c.n ? "n" : "" }, tr, c.l);
+  const tb = h("tbody", {}, t);
+  for (const r of rows) { const row = h("tr", {}, tb); cols.forEach((c, i) => h("td", { class: c.n ? "n" : "" }, row, r[i])); }
+  return wrap;
+}
+function tableView(hostId, cols, rows) { const fig = document.getElementById(hostId).closest("figure"); const d = h("details", { class: "tv" }, fig); h("summary", {}, d, "Table view"); table(d, cols, rows); }
+function chart(id, draw, minW = 0) {
+  const host = document.getElementById(id); let w = 0;
+  if (minW) host.style.overflowX = "auto";
+  const run = () => { const nw = host.clientWidth; if (nw && nw !== w) { w = nw; host.replaceChildren(); draw(host, Math.max(nw, minW)); } };
+  new ResizeObserver(() => requestAnimationFrame(run)).observe(host); run();
+}
+// horizontal rows of estimates with CIs, one or more panels sharing the rows; a dashed line marks the reference value
+function rows(host, W, o) {
+  const rh = o.rh || 30, lw = Math.min(o.lw || 230, W * 0.36), gap = 26, H = o.rows.length * rh + 52;
+  const svg = s("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}` }, host);
+  const pw = (W - lw - 12 - 18 - gap * (o.panels.length - 1)) / o.panels.length, top = 8, bot = H - 40;
+  o.rows.forEach((r, i) => { const yy = top + i * rh + rh / 2; txt(svg, 0, yy + (r.sub ? -2 : 4), r.label, r.strong ? "labstrong" : "lab"); if (r.sub) txt(svg, 0, yy + 12, r.sub, "tick"); });
+  o.panels.forEach((P, k) => {
+    const X0 = lw + 12 + k * (pw + gap), x = lin(P.x[0], P.x[1], X0, X0 + pw);
+    for (const t of P.xt || nice(P.x[0], P.x[1], 4)) { s("line", { x1: x(t), x2: x(t), y1: top, y2: bot, class: "grid" }, svg); txt(svg, x(t), bot + 15, (P.xf || (v => f(v, 1)))(t), "tick", "middle"); }
+    if (P.band) s("rect", { x: x(Math.max(P.band[0], P.x[0])), y: top, width: x(Math.min(P.band[1], P.x[1])) - x(Math.max(P.band[0], P.x[0])), height: bot - top, style: "fill:var(--s0);opacity:0.18" }, svg);
+    if (P.zero != null) s("line", { x1: x(P.zero), x2: x(P.zero), y1: top, y2: bot, class: "zero" }, svg);
+    if (P.ref != null) s("line", { x1: x(P.ref), x2: x(P.ref), y1: top, y2: bot, class: "refl" }, svg);
+    txt(svg, X0 + pw / 2, bot + 32, P.label, "lab", "middle");
+    o.rows.forEach((r, i) => {
+      const yy = top + i * rh + rh / 2, marks = r.marks[k] || [], n = marks.length;
+      marks.forEach((mk, j) => {
+        const dy = n > 1 ? (j - (n - 1) / 2) * Math.min(9, rh / (n + 1)) : 0, g = s("g", {}, svg);
+        if (mk.bar) { const b0 = x(0), b1 = x(mk.est), rr = Math.min(4, Math.abs(b1 - b0) / 2);
+          s("path", { d: `M${b0},${yy + dy - 6}H${b1 - rr}q${rr},0 ${rr},${rr}v${12 - 2 * rr}q0,${rr} ${-rr},${rr}H${b0}Z`, style: `fill:var(${mk.c})` }, g);
+          txt(svg, b1 + 6, yy + dy + 4, mk.label, "labstrong"); }
+        if (mk.lo != null) s("line", { x1: x(Math.max(mk.lo, P.x[0])), x2: x(Math.min(mk.hi, P.x[1])), y1: yy + dy, y2: yy + dy, style: `stroke:var(${mk.c});stroke-width:2` }, g);
+        if (!mk.bar) s("circle", { cx: x(mk.est), cy: yy + dy, r: 4.5, style: mk.hollow ? `fill:var(--surface);stroke:var(${mk.c});stroke-width:2` : `fill:var(${mk.c});stroke:var(--surface);stroke-width:2` }, g);
+        s("rect", { x: x(Math.max(Math.min(mk.lo ?? mk.est, mk.est), P.x[0])) - 8, y: yy + dy - 9, width: Math.max(16, x(Math.min(mk.hi ?? mk.est, P.x[1])) - x(Math.max(mk.lo ?? mk.est, P.x[0])) + 16), height: 18, fill: "transparent" }, g);
+        hover(g, r.title || r.label, mk.tip);
+      });
+    });
+  });
+}
+
+// ---------- results access ----------
+const REF = R.reference, REPS = Object.keys(R.reps), RES = {}, CHG = {};
+for (const r of R.results) RES[`${r.task}|${r.rep}|${r.mode}`] = r;
+for (const c of R.change) CHG[c.rep] = c;
+const model = rep => rep.includes(", ") ? rep.split(", ")[0] : null;
+const label = rep => rep.includes(", ") ? rep.split(", ").slice(1).join(", ") : rep;
+const family = rep => model(rep) ? "Foundation model: " + model(rep) : "Conventional volumetrics";
+const FAM = rep => model(rep) ? "--fm1" : "--vol";
+const TASKNAME = { P1: "PACC decline", P1t: "Decline, tau substudy", P2: "PACC change, week 240", P3: "CDR progression", B1: "Tau PET", B2: "Amyloid PET", B3: "Plasma p-tau217", S1: "Age", S2: "NeuroQuant hippocampus" };
+const COLS = [
+  { t: "P1", mode: "base", head: "P1", name: "Decline, gain", unit: "ΔR²", d: 3 },
+  { t: "P1", mode: "alone", head: "P1 scan", name: "Decline, scan alone", unit: "R²", d: 3 },
+  { t: "P1t", mode: "base", head: "P1t", name: "Gain over tau PET", unit: "ΔR²", d: 3 },
+  { t: "P2", mode: "base", head: "P2", name: "Week 240, gain", unit: "ΔR²", d: 3 },
+  { t: "P3", mode: "base", head: "P3", name: "CDR, gain", unit: "ΔAUROC", d: 3 },
+  { t: "B1", mode: "alone", head: "B1", name: "Tau PET", unit: "R²", d: 3 },
+  { t: "B2", mode: "alone", head: "B2", name: "Amyloid PET", unit: "R²", d: 3 },
+  { t: "B3", mode: "alone", head: "B3", name: "p-tau217", unit: "R²", d: 3 },
+  { t: "S1", mode: "alone", head: "S1", name: "Age", unit: "R²", d: 2 },
+  { t: "S2", mode: "alone", head: "S2", name: "Hippocampus", unit: "R²", d: 2 },
+  { c: "d", ci: "d_ci", head: "C1", name: "AD-specific change", unit: "d", d: 2 },
+  { c: "rho_decline", ci: "rho_ci", head: "C2", name: "Tracks decline", unit: "ρ", d: 2 },
+  { c: "snr", ci: "snr_ci", head: "C3", name: "Over retest noise", unit: "ratio", d: 2 },
+];
+const COL = k => COLS.find(c => c.head === k);
+// one cell: value, its 95% interval, and the paired difference from the reference with its interval
+const key = col => col.c ? `C ${col.c}` : `${col.t} ${col.mode}`;
+// differences from the reference: paired bootstrap SE widened by the chance variation of both representations' fits
+// (SD of the score over random representations), which a bootstrap of fixed out-of-fold predictions does not see
+const widen = (col, diff, se) => { const nsd = R.meta.null[key(col)]?.sd ?? 0, s2 = Math.sqrt(se ** 2 + 2 * nsd ** 2); return [diff - 1.96 * s2, diff + 1.96 * s2]; };
+function cell(col, rep, split) {
+  if (col.c) {
+    const C = CHG[rep]?.[split]; if (!C) return null;
+    const vr = C.vs_reference?.[col.c];
+    return { v: C[col.c], ci: C[col.ci], diff: vr?.diff, dci: vr ? widen(col, vr.diff, vr.se) : null, n: `${C.n_a4} A4, ${C.n_learn} LEARN` };
+  }
+  const r = RES[`${col.t}|${rep}|${col.mode}`]; if (!r) return null;
+  const src = col.mode === "base" ? r.gain : r; if (!src || src[split] == null) return null;
+  const vr = r.vs_reference, d = vr?.[split];
+  return { v: src[split], ci: src[split + "_ci"], diff: d, dci: d == null ? null : widen(col, d, vr[split + "_se"]), n: `${split === "dev" ? r.n_dev : r.n_test} participants` };
+}
+const chance = col => { const n = R.meta.null[key(col)]; return n ? [n.mean - 2 * n.sd, n.mean + 2 * n.sd] : null; };
+const status = c => !c || !c.dci ? "" : c.dci[0] > 0 ? "better" : c.dci[1] < 0 ? "worse" : "";
+const mdd = (col, split) => (R.meta.resolution[key(col)] || {})[split === "dev" ? "mdd_dev" : "mdd_test"];
+const tipRows = (col, c, split) => [
+  { c: "", v: `${fs(c.v, col.d)} (${f(c.ci[0], col.d)} to ${f(c.ci[1], col.d)})`, l: `${col.unit}, ${split}, 95% CI` },
+  ...(c.diff != null ? [{ v: `${fs(c.diff, col.d)} (${f(c.dci[0], col.d)} to ${f(c.dci[1], col.d)})`, l: `vs ${REF}` }] : []),
+  { v: c.n, l: "" }];
+
+// ---------- header, scorecard, checks ----------
+const M = R.meta, CF = R.config;
+document.getElementById("meta-run").textContent = `Run ${CF.run_date} · ${Math.round(CF.runtime_s / 60)} min`;
+document.getElementById("meta-split").textContent = `Split ${M.split_sha.slice(0, 12)} · ${fi(M.n.dev)} dev / ${fi(M.n.test)} test`;
+document.getElementById("ref-name").textContent = REF;
+document.getElementById("p-n").textContent = `${fi(M.n.dev + M.n.test)} (${fi(M.n.dev)} dev, ${fi(M.n.test)} test)`;
+document.getElementById("p-sha").textContent = M.split_sha.slice(0, 16) + "…";
+document.getElementById("foot-config").textContent = `Seed ${CF.seed} · ${CF.folds}-fold × ${CF.repeats} repeats · ${CF.boot.toLocaleString("en-US")} bootstrap draws · PACC form effects B ${f(CF.form_effects.B, 3)}, SC ${f(CF.form_effects.SC, 3)}`;
+
+let split = "dev";
+function scorecard() {
+  const host = document.getElementById("score"); host.replaceChildren();
+  const t = h("table", { class: "score" }, host), hr = h("tr", {}, h("thead", {}, t));
+  h("th", { class: "rep", scope: "col" }, hr, "Representation");
+  for (const c of COLS) { const th = h("th", { class: "n", scope: "col", title: c.t ? R.tasks[c.t].description : "AD-specific change (A4 vs LEARN)" }, hr, c.head); h("small", {}, th, `${c.name} · ${c.unit}`); }
+  const tb = h("tbody", {}, t), cr = h("tr", { class: "grp" }, tb), ct = h("td", { class: "rep" }, cr, "Chance");
+  h("small", {}, ct, `${R.meta.null.draws} random ${fi(R.meta.null.dims)}-d representations, mean`);
+  for (const col of COLS) { const n = R.meta.null[key(col)], d = h("td", { class: "v" }, cr, n ? fs(n.mean, col.d) : "–"); if (n) hover(d, `Chance level — ${col.head} ${col.name}`, [{ v: `${fs(n.mean, col.d)} ± ${f(n.sd, col.d)}`, l: "mean ± SD over random representations" }]); }
+  let last = null;
+  for (const rep of REPS) {
+    if (family(rep) !== last) { last = family(rep); const g = h("tr", { class: "grp" }, tb); h("td", { class: "rep" }, g, model(rep) || last); for (const _ of COLS) h("td", {}, g, ""); }
+    const tr = h("tr", { class: rep === REF ? "ref" : "" }, tb), td = h("td", { class: "rep" }, tr, label(rep));
+    h("small", {}, td, rep === REF ? "reference" : `${fi(R.reps[rep].dims)} dims${R.reps[rep].frozen ? "" : " · dev only"}`);
+    for (const col of COLS) {
+      const c = cell(col, rep, split), st = rep === REF ? "" : status(c), d = h("td", { class: `v ${st}` }, tr, c ? fs(c.v, col.d) : "–");
+      if (st) h("b", { "aria-label": st === "better" ? "better than reference" : "worse than reference" }, d, st === "better" ? "▲" : "▼");
+      if (c) hover(d, `${label(rep)}${model(rep) ? " · " + model(rep) : ""} — ${col.head} ${col.name}`, tipRows(col, c, split));
+    }
+  }
+  const mr = h("tr", { class: "mdd" }, tb); h("td", { class: "rep" }, mr, "Detectable difference vs reference (80% power)");
+  for (const col of COLS) h("td", { class: "v" }, mr, mdd(col, split) == null ? "–" : f(mdd(col, split), col.d));
+  document.getElementById("score-note").textContent = split === "dev" ? `Cross-validated on ${fi(M.n.dev)} dev participants (fewer for tasks with missing targets).` : `One fit on dev, scored on ${fi(M.n.test)} held-out participants. Only frozen representations have test scores.`;
+}
+for (const [id, sp] of [["sp-dev", "dev"], ["sp-test", "test"]]) document.getElementById(id).addEventListener("click", () => {
+  split = sp; for (const b of ["sp-dev", "sp-test"]) document.getElementById(b).setAttribute("aria-pressed", String(b === id)); scorecard();
+});
+scorecard();
+
+(() => {  // eval health: does the eval behave like a measuring instrument?
+  const host = document.getElementById("checks"), add = (cls, tag, html) => { const d = h("div", {}, host); h("span", { class: `pill ${cls}` }, d, tag); const p = h("span", {}, d); p.innerHTML = html; };
+  const N = M.null, ch = (k, d) => `<span class="num">${fs(N[k].mean, d)} ± ${f(N[k].sd, d)}</span>`;
+  add(Math.abs(N["P1 base"].mean) < 0.005 ? "good" : "crit", "chance", `${N.draws} random ${fi(N.dims)}-d representations, run through the same probes, score: P1 gain ${ch("P1 base", 3)}, P1 scan alone R² ${ch("P1 alone", 3)}, P3 scan alone AUROC ${ch("P3 alone", 3)}, C1 ${ch("C d", 2)}, C2 ${ch("C rho_decline", 2)} (mean ± SD). Stacking does not reward noise, and the change index is unbiased. A bootstrap of fixed fits misses this chance variation; it is small for R² but about doubles the noise of AUROC and the change tasks, so every interval and detectable difference on this page includes it. A single random draw can land in the tail of these distributions, so the page shows this calibrated chance level instead of one random representation.`);
+  add(M.p1_reliability >= 0.8 ? "good" : "warn", "target", `The P1 decline rate is reliable: split-half reliability <span class="num">${f(M.p1_reliability, 2)}</span> (alternate visits, Spearman–Brown), mean <span class="num">${fs(M.p1_slope_mean, 2)}</span> PACC points per year, SD <span class="num">${f(M.p1_slope_sd, 2)}</span>.`);
+  const r1 = M.resolution["P1 base"];
+  add(r1.mdd_dev <= 0.03 ? "good" : "warn", "dev", `On dev the headline detects a <span class="num">${f(r1.mdd_dev, 3)}</span> R² difference from the reference with 80% power. Fold-to-fold SD is <span class="num">${f(r1.sd_repeats, 3)}</span>, so partition noise is small next to participant sampling.`);
+  add(r1.mdd_test <= 0.03 ? "good" : "warn", "test", `The test split resolves <span class="num">${f(r1.mdd_test, 3)}</span>, about ${f(r1.mdd_test / r1.mdd_dev, 1)}× coarser. Use it to confirm direction and rough size; confirm gate-sized gains on an external cohort.`);
+  const rt = M.rank_transfer["P1 base"];
+  add(rt >= 0.7 ? "good" : "warn", "transfer", `Dev and test rank the frozen representations alike on the headline: Spearman <span class="num">${f(rt, 2)}</span>.`);
+})();
+
+// ---------- task figures ----------
+function taskFigure(id, cols, minW) {
+  const reps = REPS.filter(rep => cols.some(c => cell(c, rep, "dev")));
+  const ranges = cols.map(c => {
+    const vals = reps.flatMap(rep => { const d = cell(c, rep, "dev"), t = cell(c, rep, "test"); return [...(d ? d.ci : []), ...(t ? [t.v] : [])]; }).filter(Number.isFinite);
+    const nb = chance(c); if (nb) vals.push(...nb);
+    let lo = Math.min(...vals, c.unit.startsWith("Δ") || c.c === "d" ? 0 : Infinity), hi = Math.max(...vals);
+    const pad = (hi - lo) * 0.06; return [lo - pad, hi + pad];
+  });
+  legend(id + "-leg", [{ c: "--vol", l: "Conventional volumetrics", k: "dot" }, { c: "--fm1", l: "Foundation model", k: "dot" }, { c: "--ink-2", l: "Test (frozen only)", k: "hollow" }, { c: "--ink-2", l: `Reference: ${REF}`, k: "dash" }, { c: "--s0", l: `Chance: ${R.meta.null.draws} random representations, mean ± 2 SD`, k: "band" }]);
+  chart(id, (host, W) => rows(host, W, { lw: 250, rh: 30, rows: reps.map(rep => ({ label: label(rep), sub: model(rep) || (rep === REF ? "reference" : family(rep).toLowerCase()), strong: rep === REF, title: rep,
+    marks: cols.map(c => { const d = cell(c, rep, "dev"), t = cell(c, rep, "test"), m = [];
+      if (d) m.push({ c: FAM(rep), est: d.v, lo: d.ci[0], hi: d.ci[1], tip: tipRows(c, d, "dev") });
+      if (t) m.push({ c: FAM(rep), hollow: true, est: t.v, tip: tipRows(c, t, "test") });
+      return m; }) })),
+    panels: cols.map((c, k) => { const xt = nice(ranges[k][0], ranges[k][1], 4);
+      return { x: ranges[k], xt, zero: ranges[k][0] < 0 && ranges[k][1] > 0 ? 0 : null, ref: cell(c, REF, "dev")?.v, band: chance(c),
+               label: `${c.head} · ${c.name} (${c.unit})`, xf: v => f(v, decimals(xt)) }; }) }), minW);
+  tableView(id, [{ l: "Representation" }, ...cols.flatMap(c => [{ l: `${c.head} ${c.unit}, dev (95% CI)`, n: 1 }, { l: `${c.head} vs reference`, n: 1 }, { l: `${c.head} test`, n: 1 }])],
+    reps.map(rep => [rep, ...cols.flatMap(c => { const d = cell(c, rep, "dev"), t = cell(c, rep, "test");
+      return [d ? `${fs(d.v, c.d)} (${f(d.ci[0], c.d)} to ${f(d.ci[1], c.d)})` : "–", d && d.diff != null ? `${fs(d.diff, c.d)} (${f(d.dci[0], c.d)} to ${f(d.dci[1], c.d)})` : "–", t ? fs(t.v, c.d) : "–"]; })]));
+}
+for (const [id, heads, minW] of [["f1", ["P1", "P1 scan"], 720], ["f2", ["P1t", "P2", "P3"], 860], ["f3", ["B1", "B2", "B3"], 860], ["f4", ["S1", "S2"], 720], ["f5", ["C1", "C2", "C3"], 860]]) {
+  const fig = document.getElementById(id).closest("figure"), leg = h("div", { class: "legend", id: id + "-leg" });
+  fig.insertBefore(leg, fig.querySelector(".panel"));
+  taskFigure(id, heads.map(COL), minW);
+}
+(() => {
+  const T = R.tasks, b = RES["P1|none|base"], tb = RES["P1t|none|base"], nt = RES["P1t|none|no_tau"], p3 = RES["P3|none|base"];
+  document.getElementById("f1-note").textContent = `Clinical + p-tau217 (+ arm) alone reaches R² ${f(b.dev, 3)} on dev (${T.P1.n_dev} participants) and ${f(b.test, 3)} on test (${T.P1.n_test}). Left: the gain when the scan is stacked on top. Right: the scan with nothing else.`;
+  document.getElementById("f2-note").textContent = `In the tau substudy (${T.P1t.n_dev} dev participants), tau PET itself adds ${fs(tb.tau_gain.dev, 3)} R² (95% CI ${f(tb.tau_gain.dev_ci[0], 3)} to ${f(tb.tau_gain.dev_ci[1], 3)}) to clinical + p-tau217 (R² ${f(nt.dev, 3)} → ${f(tb.dev, 3)}); P1t asks what the scan adds after that. P2 is the published Devanarayan target, scored here on both arms. P3: clinical + p-tau217 alone reaches AUROC ${f(p3.dev, 3)}.`;
+  const C0 = CHG[REF].dev;
+  document.getElementById("f5-note").textContent = `C1: age-adjusted A4 − LEARN separation in A4 standard deviations (${C0.n_a4} A4 and ${C0.n_learn} LEARN dev participants with both scans). With d, a trial needs 2 × 2.80² / (0.25 d)² participants per arm to detect a 25% slowing of the AD-specific change: ${fi(C0.n_per_arm_25pct)} for ${REF}. C2: Spearman correlation with PACC decline in A4. C3: separation divided by the SD of the same index on week-12 change (${C0.n_week12} A4 participants scanned at weeks 0 and 12).`;
+})();
+
+// ---------- eval quality ----------
+(() => {
+  const keys = COLS.map(c => [c, c.c ? `C ${c.c}` : `${c.t} ${c.mode}`]);
+  table("t-res", [{ l: "Task" }, { l: "Metric" }, { l: "n dev / test", n: 1 }, { l: "Detectable difference, dev", n: 1 }, { l: "Detectable difference, test", n: 1 }, { l: "Fold SD", n: 1 }, { l: "Dev–test rank agreement", n: 1 }],
+    keys.map(([c, k]) => { const r = M.resolution[k] || {}, T = c.t ? R.tasks[c.t] : null, C0 = CHG[REF];
+      return [`${c.head} · ${c.name}`, c.unit,
+        T ? `${fi(T.n_dev)} / ${fi(T.n_test)}` : `${fi(C0.dev.n_a4 + C0.dev.n_learn)} / ${C0.test ? fi(C0.test.n_a4 + C0.test.n_learn) : "–"}`,
+        f(r.mdd_dev, c.d) + (r.mdd_bootstrap != null && r.mdd_bootstrap !== r.mdd_dev ? ` (bootstrap ${f(r.mdd_bootstrap, c.d)})` : ""), r.mdd_test == null ? "–" : f(r.mdd_test, c.d), r.sd_repeats == null ? "–" : f(r.sd_repeats, 3), M.rank_transfer[k] == null ? "–" : f(M.rank_transfer[k], 2)]; }));
+  const D = Object.entries(M.design), P = R.design_pair;
+  document.getElementById("f7-note").textContent = `${P[0]} vs ${P[1]}, stacked on clinical + p-tau217, dev participants. The detectable difference shrinks as the target gets more reliable and more participants count. Placebo-only scoring of the week-240 change (the published protocol) needs a difference about ${f(D[0][1].mdd / D[2][1].mdd, 1)}× larger than the P1 slope design to be detected.`;
+  const hi = Math.max(...D.map(([, d]) => d.mdd)) * 1.15;
+  chart("f7", (host, W) => rows(host, W, { lw: 300, rh: 34, rows: D.map(([k, d]) => ({ label: k, sub: `${fi(d.n)} participants`, marks: [[{ c: "--accent", bar: true, label: f(d.mdd, 3), est: d.mdd, tip: [{ v: f(d.mdd, 3), l: "detectable ΔR², 80% power" }, { v: `${fs(d.delta, 3)} (z ${fs(d.z, 2)})`, l: "observed difference" }, { v: f(d.se, 4), l: "paired bootstrap SE" }] }]] })),
+    panels: [{ x: [0, hi], xt: nice(0, hi, 4), zero: 0, label: "Detectable difference in R² (80% power)", xf: v => f(v, decimals(nice(0, hi, 4))) }] }), 560);
+  tableView("f7", [{ l: "Design" }, { l: "n", n: 1 }, { l: "Observed ΔR²", n: 1 }, { l: "SE", n: 1 }, { l: "z", n: 1 }, { l: "Detectable ΔR²", n: 1 }], D.map(([k, d]) => [k, fi(d.n), fs(d.delta, 3), f(d.se, 4), fs(d.z, 2), f(d.mdd, 3)]));
+})();
+</script>
